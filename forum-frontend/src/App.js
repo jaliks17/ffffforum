@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import PostList from './components/posts/PostList';
-import PostDetail from './components/posts/PostDetail';
 import CreatePost from './components/posts/CreatePost';
 import MainLayout from './components/layout/MainLayout';
 import Chat from './components/chat/Chat';
@@ -27,11 +26,11 @@ const PrivateRoute = ({ children, requireAdmin = false }) => {
 };
 
 const App = () => {
-    const [refreshPosts, setRefreshPosts] = useState(false);
+    const [refreshPostsTrigger, setRefreshPostsTrigger] = useState(0);
     const isAuthenticated = !!localStorage.getItem('token');
 
-    const onPostCreated = () => {
-        setRefreshPosts(prev => !prev);
+    const handlePostCreated = () => {
+        setRefreshPostsTrigger(prev => prev + 1);
     };
 
   return (
@@ -43,11 +42,10 @@ const App = () => {
             <Route path="/login" element={<Login />} />
                     <Route path="/posts" element={
                         <>
-                            {isAuthenticated && <CreatePost onPostCreated={onPostCreated} />}
-                            <PostList key={refreshPosts} />
+                            {isAuthenticated && <CreatePost onCreate={handlePostCreated} />}
+                            <PostList refreshTrigger={refreshPostsTrigger} />
                         </>
                     } />
-                    <Route path="/posts/:id" element={<PostDetail />} />
                     <Route path="/chat" element={<Chat />} />
                     <Route path="/admin" element={
                       <PrivateRoute requireAdmin={true}>

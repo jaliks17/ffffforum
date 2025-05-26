@@ -26,7 +26,7 @@ const PostList = ({ refreshTrigger }) => {
             setError(null);
             setEditingPostId(null);
 
-            const response = await axios.get('http://localhost:8081/api/v1/posts', {
+            const response = await axios.get('http://localhost:8080/api/v1/posts', {
                 headers: { 
                     'Accept': 'application/json',
                     ...(token && { 'Authorization': `Bearer ${token}` })
@@ -72,7 +72,7 @@ const PostList = ({ refreshTrigger }) => {
         if (!confirmDelete) return;
 
         try {
-            await axios.delete(`http://localhost:8081/api/v1/posts/${postId}`, {
+            await axios.delete(`http://localhost:8080/api/v1/posts/${postId}`, {
                 headers: { 
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -133,7 +133,7 @@ const PostList = ({ refreshTrigger }) => {
 
         try {
             await axios.put(
-                `http://localhost:8081/api/v1/posts/${postId}`,
+                `http://localhost:8080/api/v1/posts/${postId}`,
                 {
                     title: editFormData.title,
                     content: editFormData.content

@@ -6,11 +6,10 @@ import (
 	"errors"
 	"time"
 
+	pb "backend/proto"
 	"forum-service/internal/entity"
 	"forum-service/internal/repository"
 	"forum-service/pkg/logger"
-
-	pb "backend/proto"
 )
 
 type PostUsecase struct {
@@ -18,14 +17,11 @@ type PostUsecase struct {
 	authClient pb.AuthServiceClient
 	logger     *logger.Logger
 }
-
 type PostUsecaseInterface interface {
 	CreatePost(ctx context.Context, token, title, content string) (*entity.Post, error)
 	GetPosts(ctx context.Context) ([]*entity.Post, map[int]string, error)
 	DeletePost(ctx context.Context, token string, postID int64) error
 	UpdatePost(ctx context.Context, token string, postID int64, title, content string) (*entity.Post, error)
-	GetPostByID(ctx context.Context, id int64) (*entity.Post, error)
-	GetPostsByUserID(ctx context.Context, userID int64) ([]*entity.Post, error)
 }
 
 func NewPostUsecase(
@@ -85,7 +81,7 @@ func (uc *PostUsecase) GetPosts(ctx context.Context) ([]*entity.Post, map[int]st
 			UserId: authorID,
 		})
 
-		if err == nil && userResponse != nil && userResponse.User != nil {
+		if err == nil && userResponse.User != nil {
 			authorNames[int(authorID)] = userResponse.User.Username
 		}
 	}
@@ -153,12 +149,4 @@ func (uc *PostUsecase) UpdatePost(
 	)
 
 	return updatedPost, err
-}
-
-func (uc *PostUsecase) GetPostByID(ctx context.Context, id int64) (*entity.Post, error) {
-	return uc.postRepo.GetPostByID(ctx, id)
-}
-
-func (uc *PostUsecase) GetPostsByUserID(ctx context.Context, userID int64) ([]*entity.Post, error) {
-	return uc.postRepo.GetPostsByUserID(ctx, userID)
 }

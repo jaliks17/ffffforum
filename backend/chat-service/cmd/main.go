@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 
+	pb "backend/proto"
 	_ "chat-service/docs"
 	"chat-service/internal/handler"
 	"chat-service/internal/repository"
@@ -14,6 +15,8 @@ import (
 	_ "github.com/lib/pq"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // @title Chat Microservice API
@@ -36,21 +39,50 @@ import (
 // @in header
 // @name Authorization
 func main() {
-	connStr := "postgres://user:password@localhost:5432/database?sslmode=disable"
+	// Строка подключения к базе данных PostgreSQL
+	connStr := "postgres://postgres:postgres@localhost:5432/auth_service?sslmode=disable&client_encoding=UTF8"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
+	// Установление gRPC соединения с Auth Service
+	authConn, err := grpc.Dial(
+		"localhost:50051", // Убедитесь, что это правильный адрес Auth Service
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to Auth Service: %v", err)
+	}
+	defer authConn.Close()
+
+	// Создание клиента Auth Service
+	authClient := pb.NewAuthServiceClient(authConn)
+
 	repo := repository.NewMessageRepository(db)
 	uc := usecase.NewMessageUseCase(repo)
-	h := handler.NewMessageHandler(uc)
+	h := handler.NewMessageHandler(uc, authClient) // Передача authClient в обработчик
 
 	go h.HandleMessages()
 
 	r := gin.Default()
-	r.Use(cors.Default())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Upgrade", "Connection"},
+		ExposeHeaders:    []string{"Content-Length", "Upgrade", "Connection"},
+		AllowCredentials: true,
+		MaxAge:           12 * 60 * 60, // 12 hours
+	}))
+
+	// Добавляем middleware для логирования WebSocket запросов
+	r.Use(func(c *gin.Context) {
+		if c.Request.URL.Path == "/ws" {
+			log.Printf("WebSocket request headers: %v", c.Request.Header)
+		}
+		c.Next()
+	})
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -64,15 +96,19 @@ func main() {
 	// @Router /ws [get]
 	r.GET("/ws", h.HandleConnections)
 
-	// Get messages endpoint
-	// @Summary Get messages
-	// @Description Get all chat messages
-	// @Tags chat
-	// @Accept json
-	// @Produce json
-	// @Success 200 {array} models.Message
-	// @Router /messages [get]
-	r.GET("/messages", h.GetMessages)
+	// Create an API group
+	api := r.Group("/api/v1")
+	{
+		// Get messages endpoint
+		// @Summary Get messages
+		// @Description Get all chat messages
+		// @Tags chat
+		// @Accept json
+		// @Produce json
+		// @Success 200 {array} models.Message
+		// @Router /api/v1/messages [get]
+		api.GET("/messages", h.GetMessages)
+	}
 
 	log.Println("Listening on :8082...")
 	log.Fatal(r.Run(":8082"))

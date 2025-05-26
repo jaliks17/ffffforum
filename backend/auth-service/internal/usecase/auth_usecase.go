@@ -200,6 +200,18 @@ func (uc *AuthUseCase) Logout(ctx context.Context, token string) error {
 }
 
 func (uc *AuthUseCase) GetUserByID(ctx context.Context, id int64) (*entity.User, error) {
-	// TODO: Реализовать логику получения пользователя по ID
-	return nil, errors.New("not implemented")
+	// Fetch user from repository by ID
+	user, err := uc.userRepo.GetByID(ctx, id)
+	if err != nil {
+		// Handle repository errors other than sql.ErrNoRows
+		uc.logger.Error("GetUserByID failed: repository error", zap.Error(err), zap.Int64("user_id", id))
+		return nil, errors.New("internal server error") // Return a generic error for unexpected repo errors
+	}
+
+	// Check if user was not found (repository returned nil for sql.ErrNoRows)
+	if user == nil {
+		return nil, ErrUserNotFound // Return the use case specific error
+	}
+
+	return user, nil
 }

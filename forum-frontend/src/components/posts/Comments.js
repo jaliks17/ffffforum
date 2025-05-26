@@ -37,11 +37,11 @@ const Comments = ({ postId }) => {
             } : {};
 
             const response = await axios.get(
-                `http://localhost:8081/api/v1/posts/${postId}/comments`,
+                `http://localhost:8080/api/v1/posts/${postId}/comments`,
                 config
             );
 
-            const processedComments = (response.data?.data || response.data?.comments || response.data || [])
+            const processedComments = (response.data?.comments ?? [])
                 .map(comment => ({
                     id: parseInt(comment.id, 10),
                     author_id: parseInt(comment.author_id, 10),
@@ -76,7 +76,7 @@ const Comments = ({ postId }) => {
         try {
             setSubmitting(true);
             const response = await axios.post(
-                `http://localhost:8081/api/v1/posts/${postId}/comments`,
+                `http://localhost:8080/api/v1/posts/${postId}/comments`,
                 { 
                     content: newComment,
                     author_id: currentUser.id
@@ -119,7 +119,7 @@ const Comments = ({ postId }) => {
 
         try {
             const response = await axios.post(
-                `http://localhost:8081/api/v1/comments/${commentId}/like`,
+                `http://localhost:8080/api/v1/comments/${commentId}/like`,
                 {},
                 { 
                     headers: { 

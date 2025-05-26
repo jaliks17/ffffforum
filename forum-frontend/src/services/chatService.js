@@ -1,5 +1,5 @@
-const API_URL = 'http://localhost:8082';
-const WS_URL = 'ws://localhost:8082/ws';
+export const API_URL = 'http://localhost:8082/api/v1';
+export const WS_URL = 'ws://localhost:8082/ws';
 
 export function connectToChat(token, onMessage) {
   const ws = new WebSocket(`${WS_URL}?token=${token}`);

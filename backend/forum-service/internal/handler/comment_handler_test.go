@@ -14,11 +14,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"google.golang.org/grpc"
 )
 
 type MockCommentUseCase struct {
 	mock.Mock
+	usecase.CommentUseCase
 }
 
 func (m *MockCommentUseCase) CreateComment(ctx context.Context, comment *entity.Comment) error {
@@ -39,80 +39,14 @@ func (m *MockCommentUseCase) DeleteComment(ctx context.Context, id int64, userID
 	return args.Error(0)
 }
 
-type MockAuthClient struct {
-	mock.Mock
+func (m *MockCommentUseCase) GetCommentsByPostID(ctx context.Context, postID int64) ([]entity.Comment, error) {
+	args := m.Called(ctx, postID)
+	return args.Get(0).([]entity.Comment), args.Error(1)
 }
 
-func (m *MockAuthClient) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest, opts ...grpc.CallOption) (*pb.ValidateSessionResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.ValidateSessionResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) GetUserProfile(ctx context.Context, req *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.GetUserProfileResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) Login(ctx context.Context, req *pb.LoginRequest, opts ...grpc.CallOption) (*pb.TokenResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.TokenResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) Register(ctx context.Context, req *pb.RegisterRequest, opts ...grpc.CallOption) (*pb.UserResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.UserResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) Logout(ctx context.Context, req *pb.LogoutRequest, opts ...grpc.CallOption) (*pb.SuccessResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.SuccessResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest, opts ...grpc.CallOption) (*pb.TokenResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.TokenResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) SignIn(ctx context.Context, req *pb.SignInRequest, opts ...grpc.CallOption) (*pb.SignInResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.SignInResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) SignUp(ctx context.Context, req *pb.SignUpRequest, opts ...grpc.CallOption) (*pb.SignUpResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.SignUpResponse), args.Error(1)
-}
-
-func (m *MockAuthClient) ValidateSession(ctx context.Context, req *pb.ValidateSessionRequest, opts ...grpc.CallOption) (*pb.ValidateSessionResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*pb.ValidateSessionResponse), args.Error(1)
+func (m *MockCommentUseCase) GetAuthClient() pb.AuthServiceClient {
+	args := m.Called()
+	return args.Get(0).(pb.AuthServiceClient)
 }
 
 func TestCommentHandler_DeleteComment(t *testing.T) {
@@ -201,17 +135,10 @@ func TestCommentHandler_DeleteComment(t *testing.T) {
 			c.Params = []gin.Param{{Key: "id", Value: tt.commentID}}
 
 			mockUC := new(MockCommentUseCase)
-			mockAuth := new(MockAuthClient)
-			h := NewCommentHandler(mockUC, mockAuth)
+			h := NewCommentHandler(mockUC)
 
 			// Setup mock expectations
 			if tt.authHeader != "" {
-				mockAuth.On("ValidateToken", mock.Anything, &pb.ValidateTokenRequest{
-					Token: "valid-token",
-				}).Return(tt.mockAuthResp, tt.mockAuthErr)
-			}
-
-			if tt.mockAuthResp != nil && tt.mockAuthResp.Valid {
 				mockUC.On("DeleteComment", mock.Anything, int64(1), tt.mockAuthResp.UserId).Return(tt.mockDeleteErr)
 			}
 
@@ -222,7 +149,6 @@ func TestCommentHandler_DeleteComment(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			assert.Equal(t, tt.expectedBody, w.Body)
 			mockUC.AssertExpectations(t)
-			mockAuth.AssertExpectations(t)
 		})
 	}
 }
@@ -249,8 +175,7 @@ func TestCommentHandler_Create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUC := new(MockCommentUseCase)
-			mockAuth := new(MockAuthClient)
-			h := NewCommentHandler(mockUC, mockAuth)
+			h := NewCommentHandler(mockUC)
 
 			mockUC.On("CreateComment", mock.Anything, tt.comment).Return(tt.mockCreateErr)
 
@@ -291,8 +216,7 @@ func TestCommentHandler_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUC := new(MockCommentUseCase)
-			mockAuth := new(MockAuthClient)
-			h := NewCommentHandler(mockUC, mockAuth)
+			h := NewCommentHandler(mockUC)
 
 			mockUC.On("GetComment", mock.Anything, tt.id).Return(tt.mockComment, tt.mockErr)
 

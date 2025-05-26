@@ -1,22 +1,20 @@
-package usecase_test
+package usecase
 
 import (
 	"context"
 
-	"google.golang.org/grpc"
-
 	pb "backend/proto"
 	"forum-service/internal/entity"
+
+	"google.golang.org/grpc"
 )
 
-// Mock implementation of PostRepository interface
 type MockPostRepository struct {
-	CreatePostFunc      func(ctx context.Context, post *entity.Post) (int64, error)
-	GetPostsFunc        func(ctx context.Context) ([]*entity.Post, error)
-	GetPostByIDFunc     func(ctx context.Context, id int64) (*entity.Post, error)
-	DeletePostFunc      func(ctx context.Context, postID, authorID int64, role string) error
-	UpdatePostFunc      func(ctx context.Context, postID, authorID int64, role, title, content string) (*entity.Post, error)
-	GetPostsByUserIDFunc func(ctx context.Context, userID int64) ([]*entity.Post, error)
+	CreatePostFunc  func(ctx context.Context, post *entity.Post) (int64, error)
+	GetPostsFunc    func(ctx context.Context) ([]*entity.Post, error)
+	GetPostByIDFunc func(ctx context.Context, id int64) (*entity.Post, error)
+	DeletePostFunc  func(ctx context.Context, postID, authorID int64, role string) error
+	UpdatePostFunc  func(ctx context.Context, postID, authorID int64, role, title, content string) (*entity.Post, error)
 }
 
 func (m *MockPostRepository) CreatePost(ctx context.Context, post *entity.Post) (int64, error) {
@@ -54,23 +52,15 @@ func (m *MockPostRepository) UpdatePost(ctx context.Context, postID, authorID in
 	return nil, nil
 }
 
-func (m *MockPostRepository) GetPostsByUserID(ctx context.Context, userID int64) ([]*entity.Post, error) {
-	if m.GetPostsByUserIDFunc != nil {
-		return m.GetPostsByUserIDFunc(ctx, userID)
-	}
-	return nil, nil
-}
-
-// Mock implementation of AuthServiceClient interface
 type MockAuthServiceClient struct {
-	ValidateTokenFunc    func(ctx context.Context, in *pb.ValidateTokenRequest, opts ...grpc.CallOption) (*pb.ValidateSessionResponse, error)
-	GetUserProfileFunc   func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error)
-	LoginFunc           func(ctx context.Context, in *pb.LoginRequest, opts ...grpc.CallOption) (*pb.TokenResponse, error)
-	RegisterFunc        func(ctx context.Context, req *pb.RegisterRequest, opts ...grpc.CallOption) (*pb.UserResponse, error)
-	LogoutFunc          func(ctx context.Context, in *pb.LogoutRequest, opts ...grpc.CallOption) (*pb.SuccessResponse, error)
-	RefreshTokenFunc    func(ctx context.Context, in *pb.RefreshTokenRequest, opts ...grpc.CallOption) (*pb.TokenResponse, error)
-	SignInFunc          func(ctx context.Context, in *pb.SignInRequest, opts ...grpc.CallOption) (*pb.SignInResponse, error)
-	SignUpFunc          func(ctx context.Context, in *pb.SignUpRequest, opts ...grpc.CallOption) (*pb.SignUpResponse, error)
+	ValidateTokenFunc func(ctx context.Context, in *pb.ValidateTokenRequest, opts ...grpc.CallOption) (*pb.ValidateSessionResponse, error)
+	GetUserProfileFunc func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error)
+	LoginFunc         func(ctx context.Context, in *pb.LoginRequest, opts ...grpc.CallOption) (*pb.TokenResponse, error)
+	RegisterFunc      func(ctx context.Context, in *pb.RegisterRequest, opts ...grpc.CallOption) (*pb.UserResponse, error)
+	LogoutFunc        func(ctx context.Context, in *pb.LogoutRequest, opts ...grpc.CallOption) (*pb.SuccessResponse, error)
+	RefreshTokenFunc  func(ctx context.Context, in *pb.RefreshTokenRequest, opts ...grpc.CallOption) (*pb.TokenResponse, error)
+	SignInFunc        func(ctx context.Context, in *pb.SignInRequest, opts ...grpc.CallOption) (*pb.SignInResponse, error)
+	SignUpFunc        func(ctx context.Context, in *pb.SignUpRequest, opts ...grpc.CallOption) (*pb.SignUpResponse, error)
 	ValidateSessionFunc func(ctx context.Context, in *pb.ValidateSessionRequest, opts ...grpc.CallOption) (*pb.ValidateSessionResponse, error)
 }
 
@@ -95,11 +85,11 @@ func (m *MockAuthServiceClient) Login(ctx context.Context, in *pb.LoginRequest, 
 	return nil, nil
 }
 
-func (m *MockAuthServiceClient) Register(ctx context.Context, req *pb.RegisterRequest, opts ...grpc.CallOption) (*pb.UserResponse, error) {
+func (m *MockAuthServiceClient) Register(ctx context.Context, in *pb.RegisterRequest, opts ...grpc.CallOption) (*pb.UserResponse, error) {
 	if m.RegisterFunc != nil {
-		return m.RegisterFunc(ctx, req, opts...)
+		return m.RegisterFunc(ctx, in, opts...)
 	}
-	return &pb.UserResponse{}, nil
+	return nil, nil
 }
 
 func (m *MockAuthServiceClient) Logout(ctx context.Context, in *pb.LogoutRequest, opts ...grpc.CallOption) (*pb.SuccessResponse, error) {
@@ -120,19 +110,19 @@ func (m *MockAuthServiceClient) SignIn(ctx context.Context, in *pb.SignInRequest
 	if m.SignInFunc != nil {
 		return m.SignInFunc(ctx, in, opts...)
 	}
-	return &pb.SignInResponse{}, nil
+	return nil, nil
 }
 
 func (m *MockAuthServiceClient) SignUp(ctx context.Context, in *pb.SignUpRequest, opts ...grpc.CallOption) (*pb.SignUpResponse, error) {
 	if m.SignUpFunc != nil {
 		return m.SignUpFunc(ctx, in, opts...)
 	}
-	return &pb.SignUpResponse{}, nil
+	return nil, nil
 }
 
 func (m *MockAuthServiceClient) ValidateSession(ctx context.Context, in *pb.ValidateSessionRequest, opts ...grpc.CallOption) (*pb.ValidateSessionResponse, error) {
 	if m.ValidateSessionFunc != nil {
 		return m.ValidateSessionFunc(ctx, in, opts...)
 	}
-	return &pb.ValidateSessionResponse{}, nil
+	return nil, nil
 }

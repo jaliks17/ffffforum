@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 const API_URL = 'http://localhost:8081/api/v1/auth';
 
 export async function register(username, password, role = 'user') {
@@ -38,8 +40,18 @@ export async function login(username, password) {
     }
 
     const data = await response.json();
+    console.log('Данные от бэкенда после входа:', data);
     localStorage.setItem('token', data.access_token);
     localStorage.setItem('refreshToken', data.refresh_token);
+
+    if (data.user) {
+        localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('username', data.user.username);
+        if (data.user.role) localStorage.setItem('userRole', data.user.role);
+    } else {
+        console.warn('Login response did not contain user data.');
+    }
+
     return data;
   } catch (error) {
     console.error('Login error:', error);

@@ -4,28 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"forum-service/internal/entity"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 )
-
-var (
-	ErrCommentNotFound = errors.New("comment not found")
-	ErrCommentPermissionDenied = errors.New("permission denied")
-)
-
-type DB interface {
-	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
-	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
-}
 
 type CommentRepository interface {
 	CreateComment(ctx context.Context, comment *entity.Comment) error
 	GetCommentsByPostID(ctx context.Context, postID int64) ([]entity.Comment, error)
 	GetCommentByID(ctx context.Context, id int64) (*entity.Comment, error)
-	DeleteComment(ctx context.Context, id int64, userID int64) error
+	DeleteComment(ctx context.Context, id int64) error
 }
 
 type CommentRepo struct {
@@ -72,14 +61,9 @@ func (r *CommentRepo) GetCommentsByPostID(ctx context.Context, postID int64) ([]
 
 func (r *CommentRepo) GetCommentByID(ctx context.Context, id int64) (*entity.Comment, error) {
 	query := `
-        SELECT 
-            id,
-            content,
-            author_id,
-            post_id,
-            author_name
-        FROM comments 
-        WHERE id = $1`
+		SELECT id, content, author_id, post_id, author_name
+		FROM comments 
+		WHERE id = $1`
 
 	var comment entity.Comment
 	err := r.db.GetContext(ctx, &comment, query, id)
@@ -92,35 +76,20 @@ func (r *CommentRepo) GetCommentByID(ctx context.Context, id int64) (*entity.Com
 	return &comment, nil
 }
 
-func (r *CommentRepo) DeleteComment(ctx context.Context, id int64, userID int64) error {
-	// Проверяем, существует ли комментарий и принадлежит ли он пользователю
-	query := `DELETE FROM comments WHERE id = $1 AND author_id = $2`
-
-	result, err := r.db.ExecContext(ctx, query, id, userID)
+func (r *CommentRepo) DeleteComment(ctx context.Context, id int64) error {
+	query := `DELETE FROM comments WHERE id = $1`
+	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
-
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-
-	// Если затронуто 0 строк, это может означать, что либо комментария с таким ID нет,
-	// либо он не принадлежит указанному пользователю.
-	// Чтобы различить эти случаи, сначала проверим существование комментария.
-	
 	if rowsAffected == 0 {
-		// Попробуем получить комментарий по ID, чтобы узнать, существует ли он.
-		_, err := r.GetCommentByID(ctx, id)
-		if err != nil {
-			// Если GetCommentByID вернул ошибку (например, ErrCommentNotFound), возвращаем ее.
-			return err
-		}
-		// Если GetCommentByID не вернул ошибку, значит комментарий существует,
-		// но не принадлежит текущему пользователю.
-		return ErrCommentPermissionDenied
+		return ErrCommentNotFound
 	}
-
 	return nil
 }
+
+var ErrCommentNotFound = errors.New("comment not found")

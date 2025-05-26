@@ -6,7 +6,7 @@ import (
 )
 
 type MessageUseCase interface {
-	SaveMessage(msg entity.Message) error
+	SaveMessage(msg *entity.Message) error
 	GetMessages() ([]entity.Message, error)
 }
 
@@ -18,7 +18,7 @@ func NewMessageUseCase(repo repository.MessageRepository) MessageUseCase {
 	return &messageUseCase{repo: repo}
 }
 
-func (uc *messageUseCase) SaveMessage(msg entity.Message) error {
+func (uc *messageUseCase) SaveMessage(msg *entity.Message) error {
 	return uc.repo.SaveMessage(msg)
 }
 

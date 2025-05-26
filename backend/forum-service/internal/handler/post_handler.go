@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"context"
 	"errors"
-	"forum-service/internal/entity"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,43 +14,31 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-
-	pb "backend/proto"
 )
 
-type AuthClient interface {
-	ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateSessionResponse, error)
-	GetUser(ctx context.Context, req *pb.GetUserProfileRequest) (*pb.UserResponse, error)
-}
-
-type PostUseCase interface {
-	CreatePost(ctx context.Context, post *entity.Post) error
-	GetPostByID(ctx context.Context, id int64) (*entity.Post, error)
-	DeletePost(ctx context.Context, id int64) error
-}
-
 type PostHandler struct {
-	uc         usecase.PostUsecaseInterface
-	logger     *logger.Logger
-	AuthClient AuthClient
+	uc     usecase.PostUsecaseInterface
+	logger *logger.Logger
 }
 
-func NewPostHandler(uc usecase.PostUsecaseInterface, logger *logger.Logger, authClient AuthClient) *PostHandler {
-	return &PostHandler{uc: uc, logger: logger, AuthClient: authClient}
+func NewPostHandler(uc usecase.PostUsecaseInterface, logger *logger.Logger) *PostHandler {
+	return &PostHandler{uc: uc, logger: logger}
 }
 
-func (h *PostHandler) Create(ctx context.Context, post *entity.Post) error {
-	_, err := h.uc.CreatePost(ctx, post.Title, post.Content, "")
-	return err
-}
-
-func (h *PostHandler) Get(ctx context.Context, id int64) (*entity.Post, error) {
-	return h.uc.GetPostByID(ctx, id)
-}
-
-func (h *PostHandler) Delete(ctx context.Context, id int64) error {
-	return h.uc.DeletePost(ctx, "", id)
-}
+// CreatePost godoc
+// @Summary Создать новый пост
+// @Description Создает новый пост в системе
+// @Tags Посты
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer токен"
+// @Param request body entity.Post true "Данные поста"
+// @Success 201 {object} entity.Post
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 401 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/posts [post]
 
 func (h *PostHandler) CreatePost(ctx *gin.Context) {
 	authHeader := ctx.GetHeader("Authorization")
@@ -87,6 +73,17 @@ func (h *PostHandler) CreatePost(ctx *gin.Context) {
 	})
 }
 
+// GetPosts godoc
+// @Summary Get all posts
+// @Description Get list of all forum posts with pagination
+// @Tags posts
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Posts per page" default(10)
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/posts [get]
 func (h *PostHandler) GetPosts(c *gin.Context) {
 	posts, authorNames, err := h.uc.GetPosts(c.Request.Context())
 	if err != nil {
@@ -115,6 +112,22 @@ func (h *PostHandler) GetPosts(c *gin.Context) {
 	})
 }
 
+// DeletePost godoc
+// @Summary Delete a post
+// @Description Delete a forum post by ID (only author or admin can delete)
+// @Tags posts
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path int true "Post ID"
+// @Success 200 {object} entity.SuccessResponse
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 401 {object} entity.ErrorResponse
+// @Failure 403 {object} entity.ErrorResponse
+// @Failure 404 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/posts/{id} [delete]
 func (h *PostHandler) DeletePost(ctx *gin.Context) {
 	postID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -144,7 +157,6 @@ func (h *PostHandler) DeletePost(ctx *gin.Context) {
 		case errors.Is(err, repository.ErrPermissionDenied):
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission"})
 		default:
-			h.logger.Error("Failed to delete post", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete post"})
 		}
 		return
@@ -153,6 +165,23 @@ func (h *PostHandler) DeletePost(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "Post deleted successfully"})
 }
 
+// UpdatePost godoc
+// @Summary Update a post
+// @Description Update an existing forum post (only author can update)
+// @Tags posts
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path int true "Post ID"
+// @Param request body entity.Post true "Update data"
+// @Success 200 {object} entity.Post
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 401 {object} entity.ErrorResponse
+// @Failure 403 {object} entity.ErrorResponse
+// @Failure 404 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/posts/{id} [put]
 func (h *PostHandler) UpdatePost(ctx *gin.Context) {
 	postID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -195,62 +224,4 @@ func (h *PostHandler) UpdatePost(ctx *gin.Context) {
 		"message": "Post updated successfully",
 		"post":    updatedPost,
 	})
-}
-
-func (h *PostHandler) GetPostByID(c *gin.Context) {
-	postID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
-		return
-	}
-
-	post, err := h.uc.GetPostByID(c.Request.Context(), postID)
-	if err != nil {
-		if errors.Is(err, repository.ErrPostNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
-		} else {
-			h.logger.Error("Failed to get post by ID", zap.Int64("post_id", postID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "failed to get post",
-				"details": err.Error(),
-			})
-		}
-		return
-	}
-
-	c.JSON(http.StatusOK, post)
-}
-
-func (h *PostHandler) GetPostsByUserID(c *gin.Context) {
-	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
-		return
-	}
-
-	posts, err := h.uc.GetPostsByUserID(c.Request.Context(), userID)
-	if err != nil {
-		h.logger.Error("Failed to get posts by user ID", zap.Int64("user_id", userID), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to get posts by user",
-			"details": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"data": posts,
-	})
-}
-
-func (h *PostHandler) RegisterRoutes(router *gin.Engine) {
-	posts := router.Group("/api/posts")
-	{
-		posts.POST("", h.CreatePost)
-		posts.GET("", h.GetPosts)
-		posts.GET("/:id", h.GetPostByID)
-		posts.PUT("/:id", h.UpdatePost)
-		posts.DELETE("/:id", h.DeletePost)
-		posts.GET("/user/:id", h.GetPostsByUserID)
-	}
 }

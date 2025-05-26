@@ -71,7 +71,7 @@ func (c *AuthHTTPController) SignUp(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body SignInRequest true "Данные для входа"
-// @Success 200 {object} map[string]interface{} "access_token"
+// @Success 200 {object} map[string]interface{} "access_token, refresh_token, user"
 // @Failure 400 {object} entity.ErrorResponse
 // @Failure 401 {object} entity.ErrorResponse
 // @Router /api/v1/auth/signin [post]
@@ -93,9 +93,43 @@ func (c *AuthHTTPController) SignIn(ctx *gin.Context) {
 		return
 	}
 
+	// Decode the access token to get user ID and role from claims
+	token, _, err := new(jwt.Parser).ParseUnverified(session.AccessToken, jwt.MapClaims{})
+	if err != nil {
+		// Handle unexpected token parsing error (shouldn't happen with a valid token)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process token"})
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid token claims"})
+		return
+	}
+
+	userIDClaim, ok := claims["user_id"].(float64) // JWT claims are often float64
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user ID not found in token claims"})
+		return
+	}
+	userID := int64(userIDClaim)
+
+	// Fetch user details by ID
+	user, err := c.authUC.GetUserByID(ctx.Request.Context(), userID)
+	if err != nil {
+		// Handle case where user not found after successful login (unexpected)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch user data"})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"access_token":  session.AccessToken,
 		"refresh_token": session.RefreshToken,
+		"user": gin.H{
+			"id":       user.ID,
+			"username": user.Username,
+			"role":     user.Role,
+		},
 	})
 }
 

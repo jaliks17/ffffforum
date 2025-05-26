@@ -1,610 +1,398 @@
 {
-  "openapi": "3.0.0",
+  "swagger": "2.0",
   "info": {
-    "title": "API Форума",
-    "description": "API для управления постами и комментариями в системе форума",
-    "version": "1.0.0"
-  },
-  "servers": [
-    {
-      "url": "/api",
-      "description": "Основной API сервер"
-    }
-  ],
-  "components": {
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      }
-    },
-    "schemas": {
-      "Post": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "title": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "author_id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "author_name": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "Comment": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "post_id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "content": {
-            "type": "string"
-          },
-          "author_id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "author_name": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "Error": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string"
-          }
-        }
-      }
-    }
+      "contact": {}
   },
   "paths": {
-    "/posts": {
-      "post": {
-        "summary": "Создать новый пост",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "title",
-                  "content"
-                ],
-                "properties": {
-                  "title": {
-                    "type": "string"
+      "/api/v1/posts": {
+          "get": {
+              "description": "Get list of all forum posts with pagination",
+              "consumes": [
+                  "application/json"
+              ],
+              "produces": [
+                  "application/json"
+              ],
+              "tags": [
+                  "posts"
+              ],
+              "summary": "Get all posts",
+              "parameters": [
+                  {
+                      "type": "integer",
+                      "default": 1,
+                      "description": "Page number",
+                      "name": "page",
+                      "in": "query"
                   },
-                  "content": {
-                    "type": "string"
+                  {
+                      "type": "integer",
+                      "default": 10,
+                      "description": "Posts per page",
+                      "name": "limit",
+                      "in": "query"
                   }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Пост успешно создан",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Post"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Неверный токен авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "summary": "Получить список всех постов",
-        "responses": {
-          "200": {
-            "description": "Список постов успешно получен",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "posts": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Post"
+              ],
+              "responses": {
+                  "200": {
+                      "description": "OK",
+                      "schema": {
+                          "type": "object",
+                          "additionalProperties": true
                       }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/posts/{post_id}": {
-      "parameters": [
-        {
-          "name": "post_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      ],
-      "put": {
-        "summary": "Обновить пост",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "title",
-                  "content"
-                ],
-                "properties": {
-                  "title": {
-                    "type": "string"
                   },
-                  "content": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Пост успешно обновлен",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Post"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Неверный токен авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Нет прав для обновления поста",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Пост не найден",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Удалить пост",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Пост успешно удален"
-          },
-          "401": {
-            "description": "Неверный токен авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Нет прав для удаления поста",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Пост не найден",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/posts/{post_id}/comments": {
-      "parameters": [
-        {
-          "name": "post_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      ],
-      "post": {
-        "summary": "Создать новый комментарий",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "content"
-                ],
-                "properties": {
-                  "content": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Комментарий успешно создан",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Comment"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Неверный токен авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Пост не найден",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "summary": "Получить список комментариев к посту",
-        "responses": {
-          "200": {
-            "description": "Список комментариев успешно получен",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "comments": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Comment"
+                  "500": {
+                      "description": "Internal Server Error",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
                       }
-                    }
                   }
-                }
               }
-            }
-          },
-          "404": {
-            "description": "Пост не найден",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
-        }
-      }
-    },
-    "/posts/{post_id}/comments/{comment_id}": {
-      "parameters": [
-        {
-          "name": "post_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "integer",
-            "format": "int64"
-          }
-        },
-        {
-          "name": "comment_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      ],
-      "put": {
-        "summary": "Обновить комментарий",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "content"
-                ],
-                "properties": {
-                  "content": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Комментарий успешно обновлен",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Comment"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Неверный токен авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Нет прав для обновления комментария",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Комментарий не найден",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
       },
-      "delete": {
-        "summary": "Удалить комментарий",
-        "security": [
-          {
-            "BearerAuth": []
+      "/api/v1/posts/{id}": {
+          "put": {
+              "security": [
+                  {
+                      "ApiKeyAuth": []
+                  }
+              ],
+              "description": "Update an existing forum post (only author can update)",
+              "consumes": [
+                  "application/json"
+              ],
+              "produces": [
+                  "application/json"
+              ],
+              "tags": [
+                  "posts"
+              ],
+              "summary": "Update a post",
+              "parameters": [
+                  {
+                      "type": "string",
+                      "description": "Bearer token",
+                      "name": "Authorization",
+                      "in": "header",
+                      "required": true
+                  },
+                  {
+                      "type": "integer",
+                      "description": "Post ID",
+                      "name": "id",
+                      "in": "path",
+                      "required": true
+                  },
+                  {
+                      "description": "Update data",
+                      "name": "request",
+                      "in": "body",
+                      "required": true,
+                      "schema": {
+                          "$ref": "#/definitions/entity.Post"
+                      }
+                  }
+              ],
+              "responses": {
+                  "200": {
+                      "description": "OK",
+                      "schema": {
+                          "$ref": "#/definitions/entity.Post"
+                      }
+                  },
+                  "400": {
+                      "description": "Bad Request",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "401": {
+                      "description": "Unauthorized",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "403": {
+                      "description": "Forbidden",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "404": {
+                      "description": "Not Found",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "500": {
+                      "description": "Internal Server Error",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  }
+              }
+          },
+          "delete": {
+              "security": [
+                  {
+                      "ApiKeyAuth": []
+                  }
+              ],
+              "description": "Delete a forum post by ID (only author or admin can delete)",
+              "consumes": [
+                  "application/json"
+              ],
+              "produces": [
+                  "application/json"
+              ],
+              "tags": [
+                  "posts"
+              ],
+              "summary": "Delete a post",
+              "parameters": [
+                  {
+                      "type": "string",
+                      "description": "Bearer token",
+                      "name": "Authorization",
+                      "in": "header",
+                      "required": true
+                  },
+                  {
+                      "type": "integer",
+                      "description": "Post ID",
+                      "name": "id",
+                      "in": "path",
+                      "required": true
+                  }
+              ],
+              "responses": {
+                  "200": {
+                      "description": "OK",
+                      "schema": {
+                          "$ref": "#/definitions/entity.SuccessResponse"
+                      }
+                  },
+                  "400": {
+                      "description": "Bad Request",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "401": {
+                      "description": "Unauthorized",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "403": {
+                      "description": "Forbidden",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "404": {
+                      "description": "Not Found",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "500": {
+                      "description": "Internal Server Error",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  }
+              }
           }
-        ],
-        "responses": {
-          "204": {
-            "description": "Комментарий успешно удален"
-          },
-          "401": {
-            "description": "Неверный токен авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+      },
+      "/api/v1/posts/{id}/comments": {
+          "get": {
+              "description": "Get all comments for a specific post",
+              "consumes": [
+                  "application/json"
+              ],
+              "produces": [
+                  "application/json"
+              ],
+              "tags": [
+                  "comments"
+              ],
+              "summary": "Get comments for a post",
+              "parameters": [
+                  {
+                      "type": "integer",
+                      "description": "Post ID",
+                      "name": "id",
+                      "in": "path",
+                      "required": true
+                  }
+              ],
+              "responses": {
+                  "200": {
+                      "description": "OK",
+                      "schema": {
+                          "type": "array",
+                          "items": {
+                              "$ref": "#/definitions/entity.Comment"
+                          }
+                      }
+                  },
+                  "400": {
+                      "description": "Bad Request",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "500": {
+                      "description": "Internal Server Error",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  }
               }
-            }
           },
-          "403": {
-            "description": "Нет прав для удаления комментария",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+          "post": {
+              "security": [
+                  {
+                      "ApiKeyAuth": []
+                  }
+              ],
+              "description": "Create a new comment for a specific post",
+              "consumes": [
+                  "application/json"
+              ],
+              "produces": [
+                  "application/json"
+              ],
+              "tags": [
+                  "comments"
+              ],
+              "summary": "Create a new comment",
+              "parameters": [
+                  {
+                      "type": "string",
+                      "description": "Bearer token",
+                      "name": "Authorization",
+                      "in": "header",
+                      "required": true
+                  },
+                  {
+                      "type": "integer",
+                      "description": "Post ID",
+                      "name": "id",
+                      "in": "path",
+                      "required": true
+                  },
+                  {
+                      "description": "Comment data",
+                      "name": "request",
+                      "in": "body",
+                      "required": true,
+                      "schema": {
+                          "$ref": "#/definitions/entity.Comment"
+                      }
+                  }
+              ],
+              "responses": {
+                  "201": {
+                      "description": "Created",
+                      "schema": {
+                          "$ref": "#/definitions/entity.Comment"
+                      }
+                  },
+                  "400": {
+                      "description": "Bad Request",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "401": {
+                      "description": "Unauthorized",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  },
+                  "500": {
+                      "description": "Internal Server Error",
+                      "schema": {
+                          "$ref": "#/definitions/entity.ErrorResponse"
+                      }
+                  }
               }
-            }
-          },
-          "404": {
-            "description": "Комментарий не найден",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Внутренняя ошибка сервера",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
-        }
       }
-    }
+  },
+  "definitions": {
+      "entity.Comment": {
+          "type": "object",
+          "properties": {
+              "author_id": {
+                  "type": "integer",
+                  "example": 1
+              },
+              "author_name": {
+                  "description": "Исправлено db:\"-\"",
+                  "type": "string"
+              },
+              "content": {
+                  "type": "string",
+                  "example": "текст комментария"
+              },
+              "createdAt": {
+                  "type": "string"
+              },
+              "id": {
+                  "type": "integer",
+                  "example": 1
+              },
+              "post_id": {
+                  "type": "integer",
+                  "example": 1
+              }
+          }
+      },
+      "entity.ErrorResponse": {
+          "type": "object",
+          "properties": {
+              "error": {
+                  "type": "string",
+                  "example": "error message"
+              }
+          }
+      },
+      "entity.Post": {
+          "type": "object",
+          "properties": {
+              "author_id": {
+                  "type": "integer",
+                  "example": 456
+              },
+              "content": {
+                  "type": "string",
+                  "example": "Post content text"
+              },
+              "created_at": {
+                  "type": "string",
+                  "example": "2023-01-01T00:00:00Z"
+              },
+              "id": {
+                  "type": "integer",
+                  "example": 123
+              },
+              "title": {
+                  "type": "string",
+                  "example": "My Post Title"
+              }
+          }
+      },
+      "entity.SuccessResponse": {
+          "type": "object",
+          "properties": {
+              "message": {
+                  "type": "string",
+                  "example": "success message"
+              }
+          }
+      }
   }
 }

@@ -1,66 +1,45 @@
+// internal/handler/comment_handler.go
 package handler
 
 import (
 	"context"
-	"forum-service/internal/entity"
-	"forum-service/internal/usecase"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	pb "backend/proto"
+	"forum-service/internal/entity"
+	"forum-service/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 )
 
-type CommentUseCase interface {
-	CreateComment(ctx context.Context, comment *entity.Comment) error
-	GetComment(ctx context.Context, id int64) (*entity.Comment, error)
-	DeleteComment(ctx context.Context, id int64, userID int64) error
-}
-
 type CommentHandler struct {
-	usecase    CommentUseCase
-	authClient pb.AuthServiceClient
+	commentUC usecase.CommentUseCaseInterface
 }
 
-func NewCommentHandler(uc CommentUseCase, authClient pb.AuthServiceClient) *CommentHandler {
-	return &CommentHandler{
-		usecase:    uc,
-		authClient: authClient,
-	}
+func NewCommentHandler(commentUC usecase.CommentUseCaseInterface) *CommentHandler {
+	return &CommentHandler{commentUC: commentUC}
 }
 
-func (h *CommentHandler) Create(ctx context.Context, comment *entity.Comment) error {
-	return h.usecase.CreateComment(ctx, comment)
-}
-
-func (h *CommentHandler) Get(ctx context.Context, id int64) (*entity.Comment, error) {
-	return h.usecase.GetComment(ctx, id)
-}
-
-func (h *CommentHandler) Delete(ctx context.Context, id int64, userID int64) error {
-	return h.usecase.DeleteComment(ctx, id, userID)
-}
-
-// DeleteComment godoc
-// @Summary Delete a comment
-// @Description Delete a comment by its ID
+// CreateComment godoc
+// @Summary Create a new comment
+// @Description Create a new comment for a specific post
 // @Tags comments
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
 // @Param Authorization header string true "Bearer token"
-// @Param id path int true "Comment ID"
-// @Success 200 {object} map[string]string "message"
+// @Param id path int true "Post ID"
+// @Param request body entity.Comment true "Comment data"
+// @Success 201 {object} entity.Comment
 // @Failure 400 {object} entity.ErrorResponse
 // @Failure 401 {object} entity.ErrorResponse
-// @Failure 403 {object} entity.ErrorResponse
-// @Failure 404 {object} entity.ErrorResponse
 // @Failure 500 {object} entity.ErrorResponse
-// @Router /api/v1/comments/{id} [delete]
-func (h *CommentHandler) DeleteComment(c *gin.Context) {
+// @Router /api/v1/posts/{id}/comments [post]
+func (h *CommentHandler) CreateComment(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
@@ -68,7 +47,7 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 	}
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 
-	authResponse, err := h.authClient.ValidateToken(c.Request.Context(), &pb.ValidateTokenRequest{
+	authResponse, err := h.commentUC.GetAuthClient().ValidateToken(c.Request.Context(), &pb.ValidateTokenRequest{
 		Token: token,
 	})
 	if err != nil || authResponse == nil || !authResponse.Valid {
@@ -76,21 +55,129 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 		return
 	}
 
-	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	postID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
 		return
 	}
 
-	// Call the usecase method to delete the comment
-	if err := h.usecase.DeleteComment(c.Request.Context(), commentID, authResponse.UserId); err != nil {
-		log.Printf("Error deleting comment %d for user %d: %v", commentID, authResponse.UserId, err)
-		// Handle specific errors from usecase (e.g., not found, forbidden)
-		if err == usecase.ErrCommentNotFound { // Assuming ErrCommentNotFound is defined in usecase
+	var request struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	userResponse, err := h.commentUC.GetAuthClient().GetUserProfile(c.Request.Context(), &pb.GetUserProfileRequest{
+		UserId: authResponse.UserId,
+	})
+
+	comment := entity.Comment{
+		Content:    request.Content,
+		AuthorID:   authResponse.UserId,
+		AuthorName: "Unknown",
+		PostID:     postID,
+	}
+
+	if err == nil && userResponse != nil && userResponse.User != nil {
+		comment.AuthorName = userResponse.User.Username
+	}
+
+	if err := h.commentUC.CreateComment(c.Request.Context(), &comment); err != nil {
+		log.Printf("Error creating comment: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create comment"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"id":          comment.ID,
+		"content":     comment.Content,
+		"author_id":   comment.AuthorID,
+		"post_id":     comment.PostID,
+		"author_name": comment.AuthorName,
+	})
+}
+
+// GetCommentsByPostID godoc
+// @Summary Get comments for a post
+// @Description Get all comments for a specific post
+// @Tags comments
+// @Accept json
+// @Produce json
+// @Param id path int true "Post ID"
+// @Success 200 {object} []entity.Comment
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/posts/{id}/comments [get]
+func (h *CommentHandler) GetCommentsByPostID(c *gin.Context) {
+	postID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		log.Printf("Invalid post ID: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		return
+	}
+
+	comments, err := h.commentUC.GetCommentsByPostID(c.Request.Context(), postID)
+	if err != nil {
+		log.Printf("Error getting comments: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to get comments",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"comments": comments,
+	})
+}
+
+// DeleteComment godoc
+// @Summary Delete a comment
+// @Description Delete a comment by ID (only author or admin can delete)
+// @Tags comments
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path int true "Comment ID"
+// @Success 200 {object} entity.SuccessResponse
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 401 {object} entity.ErrorResponse
+// @Failure 403 {object} entity.ErrorResponse
+// @Failure 404 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/comments/{id} [delete]
+func (h *CommentHandler) DeleteComment(c *gin.Context) {
+	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+		return
+	}
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+	authResponse, err := h.commentUC.GetAuthClient().ValidateToken(c.Request.Context(), &pb.ValidateTokenRequest{
+		Token: token,
+	})
+	if err != nil || authResponse == nil || !authResponse.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	if err := h.commentUC.DeleteComment(c.Request.Context(), commentID, authResponse.UserId); err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrCommentNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "Comment not found"})
-		} else if err == usecase.ErrForbidden { // Assuming ErrForbidden is defined in usecase
+		case errors.Is(err, usecase.ErrForbidden):
 			c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to delete this comment"})
-		} else {
+		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete comment"})
 		}
 		return
@@ -99,46 +186,68 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully"})
 }
 
-func (h *CommentHandler) CreateComment(c *gin.Context) {
-	var comment entity.Comment
-	if err := c.ShouldBindJSON(&comment); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	if err := h.usecase.CreateComment(c.Request.Context(), &comment); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create comment"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, comment)
+// Create godoc
+// @Summary Create a new comment
+// @Description Create a new comment for a post
+// @Tags comments
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param Authorization header string true "Bearer token"
+// @Param request body entity.Comment true "Comment data"
+// @Success 201 {object} entity.Comment
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 401 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/comments [post]
+func (h *CommentHandler) Create(ctx context.Context, comment *entity.Comment) error {
+	return h.commentUC.CreateComment(ctx, comment)
 }
 
-func (h *CommentHandler) GetComment(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+// Get godoc
+// @Summary Get a comment
+// @Description Get a comment by ID
+// @Tags comments
+// @Accept json
+// @Produce json
+// @Param id path int true "Comment ID"
+// @Success 200 {object} entity.Comment
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 404 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/comments/{id} [get]
+func (h *CommentHandler) Get(ctx context.Context, id int64) (*entity.Comment, error) {
+	return h.commentUC.GetComment(ctx, id)
+}
+
+// LikeComment godoc
+// @Summary Like a comment
+// @Description Like or unlike a comment
+// @Tags comments
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path int true "Comment ID"
+// @Success 200 {object} map[string]interface{} "likes, is_liked"
+// @Failure 400 {object} entity.ErrorResponse
+// @Failure 401 {object} entity.ErrorResponse
+// @Failure 404 {object} entity.ErrorResponse
+// @Failure 500 {object} entity.ErrorResponse
+// @Router /api/v1/comments/{id}/like [post]
+func (h *CommentHandler) LikeComment(c *gin.Context) {
+	// Placeholder implementation
+	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
 		return
 	}
 
-	comment, err := h.usecase.GetComment(c.Request.Context(), id)
-	if err != nil {
-		if err == usecase.ErrCommentNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Comment not found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get comment"})
-		}
-		return
-	}
-
-	c.JSON(http.StatusOK, comment)
-}
-
-func (h *CommentHandler) RegisterRoutes(router *gin.Engine) {
-	comments := router.Group("/api/comments")
-	{
-		comments.POST("", h.CreateComment)
-		comments.GET("/:id", h.GetComment)
-		comments.DELETE("/:id", h.DeleteComment)
-	}
+	// TODO: Implement like/unlike logic in usecase
+	// For now, just return a placeholder response
+	c.JSON(http.StatusOK, gin.H{
+		"comment_id": commentID,
+		"likes":      1,    // Placeholder
+		"is_liked":   true, // Placeholder
+	})
 }

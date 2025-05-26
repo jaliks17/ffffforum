@@ -58,13 +58,13 @@ function AdminPanel() {
       setUsers(usersResponse.data.users);
 
       // Получаем все посты
-      const postsResponse = await axios.get('http://localhost:8081/api/v1/posts', {
+      const postsResponse = await axios.get('http://localhost:8080/api/v1/posts', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPosts(postsResponse.data.posts);
 
       // Получаем все комментарии
-      const commentsResponse = await axios.get('http://localhost:8081/api/v1/comments', {
+      const commentsResponse = await axios.get('http://localhost:8080/api/v1/comments', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setComments(commentsResponse.data.comments);
@@ -102,7 +102,7 @@ function AdminPanel() {
   const handleDeletePost = async (postId) => {
     if (window.confirm('Вы уверены, что хотите удалить этот пост?')) {
       try {
-        await axios.delete(`http://localhost:8081/api/v1/posts/${postId}`, {
+        await axios.delete(`http://localhost:8080/api/v1/posts/${postId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         fetchData();
@@ -115,7 +115,7 @@ function AdminPanel() {
   const handleDeleteComment = async (commentId) => {
     if (window.confirm('Вы уверены, что хотите удалить этот комментарий?')) {
       try {
-        await axios.delete(`http://localhost:8081/api/v1/comments/${commentId}`, {
+        await axios.delete(`http://localhost:8080/api/v1/comments/${commentId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         fetchData();
