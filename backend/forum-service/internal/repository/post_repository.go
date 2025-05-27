@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"forum-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/entity"
 
 	"github.com/jmoiron/sqlx"
 )

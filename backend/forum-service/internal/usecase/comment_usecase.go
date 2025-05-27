@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 
-	pb "backend/proto"
-	"forum-service/internal/entity"
-	"forum-service/internal/repository"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
+
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/repository"
 )
 
 var (

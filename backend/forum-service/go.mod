@@ -1,12 +1,12 @@
-module forum-service
+module github.com/jaliks17/ffffforum/backend/forum-service
 
 go 1.24.2
 
 require (
-	backend/proto v0.0.0
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-migrate/migrate/v4 v4.17.0
+	github.com/jaliks17/ffffforum/backend/proto v0.0.0-00010101000000-000000000000
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.10.0
@@ -17,7 +17,7 @@ require (
 	google.golang.org/grpc v1.72.1
 )
 
-replace backend/proto => ../proto
+replace github.com/jaliks17/ffffforum/backend/proto => ../proto
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect

@@ -1,9 +1,10 @@
 package usecase
 
 import (
-	"chat-service/internal/entity"
-	"chat-service/internal/repository"
 	"time"
+
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/repository"
 )
 
 type MessageUseCase interface {

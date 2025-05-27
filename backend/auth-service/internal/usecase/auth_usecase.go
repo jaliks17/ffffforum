@@ -7,10 +7,10 @@ import (
 	"regexp"
 	"time"
 
-	"auth-service/internal/config"
-	"auth-service/internal/entity"
-	"auth-service/internal/repository"
-	"auth-service/pkg/logger"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/config"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/repository"
+	"github.com/jaliks17/ffffforum/backend/auth-service/pkg/logger"
 
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"

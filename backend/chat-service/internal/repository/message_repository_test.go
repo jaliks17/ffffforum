@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"chat-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/entity"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"

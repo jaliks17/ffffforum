@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"forum-service/internal/entity"
-	"forum-service/internal/usecase"
 	"strconv"
 	"testing"
 
-	pb "backend/proto"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/usecase"
+
+	pb "github.com/jaliks17/ffffforum/backend/proto"
 
 	"net/http/httptest"
 

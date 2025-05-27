@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	_ "forum-service/docs"
-	"forum-service/internal/repository"
-	"forum-service/internal/usecase"
-	"forum-service/pkg/logger"
+	_ "github.com/jaliks17/ffffforum/backend/forum-service/docs"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/repository"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/usecase"
+	"github.com/jaliks17/ffffforum/backend/forum-service/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

@@ -8,12 +8,13 @@ import (
 	"net/http"
 	"time"
 
-	"auth-service/internal/config"
-	"auth-service/internal/controller"
-	"auth-service/internal/repository"
-	"auth-service/internal/usecase"
-	"auth-service/pkg/logger"
-	pb "backend/proto"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
+
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/config"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/controller"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/repository"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/usecase"
+	"github.com/jaliks17/ffffforum/backend/auth-service/pkg/logger"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

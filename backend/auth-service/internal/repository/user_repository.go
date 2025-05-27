@@ -6,8 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"auth-service/internal/entity"
-
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
 	"github.com/jmoiron/sqlx"
 )
 

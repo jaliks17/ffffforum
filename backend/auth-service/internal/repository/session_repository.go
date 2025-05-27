@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	domain "auth-service/internal/entity"
+	domain "github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
 
 	"github.com/jmoiron/sqlx"
 )

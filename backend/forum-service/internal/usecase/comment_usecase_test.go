@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	pb "backend/proto"
-	"forum-service/internal/entity"
-	"forum-service/internal/repository"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
+
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/repository"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"

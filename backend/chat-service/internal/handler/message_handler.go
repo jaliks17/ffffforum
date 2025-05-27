@@ -2,12 +2,13 @@
 package handler
 
 import (
-	"chat-service/internal/entity"
-	"chat-service/internal/usecase"
-	myWeb "chat-service/pkg/websocket"
 	"context"
 
-	pb "backend/proto"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/usecase"
+	myWeb "github.com/jaliks17/ffffforum/backend/chat-service/pkg/websocket"
+
+	pb "github.com/jaliks17/ffffforum/backend/proto"
 
 	"encoding/json"
 	"log"

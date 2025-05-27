@@ -1,4 +1,4 @@
-module chat-service
+module github.com/jaliks17/ffffforum/backend/chat-service
 
 go 1.24.2
 
@@ -8,13 +8,13 @@ require (
 	google.golang.org/grpc v1.72.1
 )
 
-replace backend/proto => ../proto
+replace github.com/jaliks17/ffffforum/backend/proto => ../proto
 
 require (
-	backend/proto v0.0.0-00010101000000-000000000000
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.1
+	github.com/jaliks17/ffffforum/backend/proto v0.0.0-00010101000000-000000000000
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/files v1.0.1

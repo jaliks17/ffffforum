@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"auth-service/internal/config"
-	"auth-service/internal/entity"
-	"auth-service/pkg/logger"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/config"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/auth-service/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

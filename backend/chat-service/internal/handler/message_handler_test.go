@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"backend/proto"
-	"chat-service/internal/entity"
-	myWeb "chat-service/pkg/websocket"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/entity"
+	myWeb "github.com/jaliks17/ffffforum/backend/chat-service/pkg/websocket"
+	"github.com/jaliks17/ffffforum/backend/proto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"

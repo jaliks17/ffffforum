@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"chat-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/entity"
 
 	_ "github.com/lib/pq"
 )

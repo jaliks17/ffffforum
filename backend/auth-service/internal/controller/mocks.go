@@ -3,8 +3,8 @@ package controller
 import (
 	"context"
 
-	"auth-service/internal/entity"
-	"auth-service/internal/usecase"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/usecase"
 
 	"github.com/golang-jwt/jwt/v5"
 )

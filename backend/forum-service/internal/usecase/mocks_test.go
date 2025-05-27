@@ -3,8 +3,9 @@ package usecase
 import (
 	"context"
 
-	pb "backend/proto"
-	"forum-service/internal/entity"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
+
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/entity"
 
 	"google.golang.org/grpc"
 )

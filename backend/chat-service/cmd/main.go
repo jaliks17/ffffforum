@@ -5,11 +5,12 @@ import (
 	"log"
 	"time"
 
-	pb "backend/proto"
-	_ "chat-service/docs"
-	"chat-service/internal/handler"
-	"chat-service/internal/repository"
-	"chat-service/internal/usecase"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
+
+	_ "github.com/jaliks17/ffffforum/backend/chat-service/docs"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/handler"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/repository"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/usecase"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

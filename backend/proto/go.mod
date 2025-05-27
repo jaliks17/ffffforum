@@ -1,4 +1,4 @@
-module backend/proto
+module github.com/jaliks17/ffffforum/backend/proto
 
 go 1.24.2
 

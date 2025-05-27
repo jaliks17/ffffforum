@@ -1,6 +1,6 @@
 package usecase
 
-import "auth-service/internal/entity"
+import "github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
 
 type RegisterResponse struct {
 	UserID int64

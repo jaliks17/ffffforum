@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"auth-service/internal/entity"
-	"auth-service/internal/usecase"
-	pb "backend/proto"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/usecase"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"forum-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/entity"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"

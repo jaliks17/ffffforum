@@ -1,8 +1,9 @@
 package mocks
 
 import (
-	"auth-service/internal/entity"
 	"context"
+
+	"github.com/jaliks17/ffffforum/backend/auth-service/internal/entity"
 
 	"github.com/stretchr/testify/mock"
 )

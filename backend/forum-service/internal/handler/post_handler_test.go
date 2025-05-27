@@ -11,11 +11,12 @@ import (
 	"testing"
 	"time"
 
-	pb "backend/proto"
-	"forum-service/internal/entity"
-	"forum-service/internal/repository"
-	"forum-service/internal/usecase"
-	"forum-service/pkg/logger"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
+
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/repository"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/usecase"
+	"github.com/jaliks17/ffffforum/backend/forum-service/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

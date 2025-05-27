@@ -9,13 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	pb "backend/proto"
-	"forum-service/config"
-	_ "forum-service/docs"
-	"forum-service/internal/handler"
-	"forum-service/internal/repository"
-	"forum-service/internal/usecase"
-	"forum-service/pkg/logger"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
+
+	"github.com/jaliks17/ffffforum/backend/forum-service/config"
+	_ "github.com/jaliks17/ffffforum/backend/forum-service/docs"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/handler"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/repository"
+	"github.com/jaliks17/ffffforum/backend/forum-service/internal/usecase"
+	"github.com/jaliks17/ffffforum/backend/forum-service/pkg/logger"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

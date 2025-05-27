@@ -10,12 +10,13 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"backend/proto"
-	"chat-service/internal/entity"
-	"chat-service/internal/handler"
-	"chat-service/internal/repository"
-	"chat-service/internal/usecase"
-	myWeb "chat-service/pkg/websocket"
+	"github.com/jaliks17/ffffforum/backend/proto"
+
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/entity"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/handler"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/repository"
+	"github.com/jaliks17/ffffforum/backend/chat-service/internal/usecase"
+	myWeb "github.com/jaliks17/ffffforum/backend/chat-service/pkg/websocket"
 
 	"os"
 	"strings"

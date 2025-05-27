@@ -3,7 +3,7 @@ package handler
 import (
 	"context"
 
-	pb "backend/proto"
+	pb "github.com/jaliks17/ffffforum/backend/proto"
 
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
