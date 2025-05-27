@@ -212,6 +212,85 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 	}
 }
 
+func TestUserRepository_GetByUsername(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	sqlxDB := sqlx.NewDb(db, "sqlmock")
+	repo := NewUserRepository(sqlxDB)
+
+	tests := []struct {
+		name    string
+		username string
+		mock    func()
+		want    *entity.User
+		wantErr bool
+	}{
+		{
+			name:  "user found",
+			username: "testuser",
+			mock: func() {
+				rows := sqlmock.NewRows([]string{"id", "username", "password", "role", "created_at", "updated_at"}).
+					AddRow(1, "testuser", "hashed_password", "user", time.Now(), time.Now())
+				mock.ExpectQuery("SELECT id, username, password, role, created_at, updated_at FROM users WHERE username = \\$1").
+					WithArgs("testuser").
+					WillReturnRows(rows)
+			},
+			want: &entity.User{
+				ID:       1,
+				Username: "testuser",
+				Password: "hashed_password",
+				Role:     "user",
+			},
+			wantErr: false,
+		},
+		{
+			name:  "user not found",
+			username: "nonexistentuser",
+			mock: func() {
+				mock.ExpectQuery("SELECT id, username, password, role, created_at, updated_at FROM users WHERE username = \\$1").
+					WithArgs("nonexistentuser").
+					WillReturnError(sql.ErrNoRows)
+			},
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:  "database error",
+			username: "testuser",
+			mock: func() {
+				mock.ExpectQuery("SELECT id, username, password, role, created_at, updated_at FROM users WHERE username = \\$1").
+					WithArgs("testuser").
+					WillReturnError(assert.AnError)
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mock()
+			got, err := repo.GetByUsername(context.Background(), tt.username)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, err)
+				if tt.want != nil {
+					assert.Equal(t, tt.want.ID, got.ID)
+					assert.Equal(t, tt.want.Username, got.Username)
+					assert.Equal(t, tt.want.Password, got.Password)
+					assert.Equal(t, tt.want.Role, got.Role)
+				} else {
+					assert.Nil(t, got)
+				}
+			}
+		})
+	}
+}
+
 func TestUserRepository_Update(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

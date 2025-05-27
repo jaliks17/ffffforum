@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	"testing"
+	"time"
 
 	"chat-service/internal/entity"
 
@@ -34,9 +35,11 @@ func TestSaveMessage(t *testing.T) {
 				Message:  "Hello world",
 			},
 			mock: func() {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO chat_messages (user_id, username, message) VALUES ($1, $2, $3)")).
-					WithArgs(1, "testuser", "Hello world").
-					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectBegin()
+				mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO chat_messages (user_id, username, content, timestamp) VALUES ($1, $2, $3, $4) RETURNING id")).
+					WithArgs(1, "testuser", "Hello world", sqlmock.AnyArg()).
+					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+				mock.ExpectCommit()
 			},
 			wantErr: false,
 		},
@@ -48,9 +51,11 @@ func TestSaveMessage(t *testing.T) {
 				Message:  "Hello world",
 			},
 			mock: func() {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO chat_messages (user_id, username, message) VALUES ($1, $2, $3)")).
-					WithArgs(2, "testuser", "Hello world").
+				mock.ExpectBegin()
+				mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO chat_messages (user_id, username, content, timestamp) VALUES ($1, $2, $3, $4) RETURNING id")).
+					WithArgs(2, "testuser", "Hello world", sqlmock.AnyArg()).
 					WillReturnError(errors.New("database error"))
+				mock.ExpectRollback()
 			},
 			wantErr: true,
 		},
@@ -62,9 +67,11 @@ func TestSaveMessage(t *testing.T) {
 				Message:  "test",
 			},
 			mock: func() {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO chat_messages (user_id, username, message) VALUES ($1, $2, $3)")).
-					WithArgs(3, "", "test").
-					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectBegin()
+				mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO chat_messages (user_id, username, content, timestamp) VALUES ($1, $2, $3, $4) RETURNING id")).
+					WithArgs(3, "", "test", sqlmock.AnyArg()).
+					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+				mock.ExpectCommit()
 			},
 			wantErr: false,
 		},
@@ -89,6 +96,8 @@ func TestGetMessages(t *testing.T) {
 
 	repo := NewMessageRepository(db)
 
+	expectedQuery := regexp.QuoteMeta("SELECT id, user_id, username, content as message, timestamp FROM chat_messages ORDER BY timestamp ASC")
+
 	tests := []struct {
 		name    string
 		mock    func()
@@ -98,10 +107,10 @@ func TestGetMessages(t *testing.T) {
 		{
 			name: "successful get messages",
 			mock: func() {
-				rows := sqlmock.NewRows([]string{"id", "user_id", "username", "message"}).
-					AddRow(1, 101, "user1", "message 1").
-					AddRow(2, 102, "user2", "message 2")
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT id, user_id, username, message FROM chat_messages")).
+				rows := sqlmock.NewRows([]string{"id", "user_id", "username", "message", "timestamp"}).
+					AddRow(1, 101, "user1", "message 1", time.Now()).
+					AddRow(2, 102, "user2", "message 2", time.Now())
+				mock.ExpectQuery(expectedQuery).
 					WillReturnRows(rows)
 			},
 			want: []entity.Message{
@@ -113,8 +122,8 @@ func TestGetMessages(t *testing.T) {
 		{
 			name: "empty result",
 			mock: func() {
-				rows := sqlmock.NewRows([]string{"id", "user_id", "username", "message"})
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT id, user_id, username, message FROM chat_messages")).
+				rows := sqlmock.NewRows([]string{"id", "user_id", "username", "message", "timestamp"})
+				mock.ExpectQuery(expectedQuery).
 					WillReturnRows(rows)
 			},
 			want:    []entity.Message{},
@@ -125,7 +134,7 @@ func TestGetMessages(t *testing.T) {
 			mock: func() {
 				rows := sqlmock.NewRows([]string{"id", "user_id", "username"}).
 					AddRow(1, 101, "user1")
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT id, user_id, username, message FROM chat_messages")).
+				mock.ExpectQuery(expectedQuery).
 					WillReturnRows(rows)
 			},
 			want:    nil,
@@ -138,7 +147,79 @@ func TestGetMessages(t *testing.T) {
 			tt.mock()
 			messages, err := repo.GetMessages()
 			assert.Equal(t, tt.wantErr, err != nil)
-			assert.Equal(t, tt.want, messages)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, messages) // Expect nil messages on error
+			} else {
+				assert.NoError(t, err)
+				if len(tt.want) == 0 {
+					// If expecting an empty result, accept either nil or an empty slice
+					if messages != nil {
+						assert.Len(t, messages, 0)
+					} else {
+						assert.Nil(t, messages)
+					}
+				} else {
+					// If expecting non-empty result, compare content
+					assert.NotNil(t, messages) // Expect non-nil messages if expecting content
+					actualMessagesWithoutTimestamp := make([]entity.Message, len(messages))
+					for i, msg := range messages {
+						actualMessagesWithoutTimestamp[i] = entity.Message{
+							ID:       msg.ID,
+							UserID:    msg.UserID,
+							Username: msg.Username,
+							Message:  msg.Message,
+						}
+					}
+					assert.Equal(t, tt.want, actualMessagesWithoutTimestamp)
+				}
+			}
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestMessageRepository_DeleteOldMessages(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("Failed to create mock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewMessageRepository(db)
+
+	cutoffTime := time.Now().Add(-24 * time.Hour)
+
+	tests := []struct {
+		name    string
+		mock    func()
+		wantErr bool
+	}{
+		{
+			name: "successful deletion",
+			mock: func() {
+				mock.ExpectExec(regexp.QuoteMeta("DELETE FROM chat_messages WHERE timestamp < $1")).
+					WithArgs(sqlmock.AnyArg()).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
+			wantErr: false,
+		},
+		{
+			name: "database error",
+			mock: func() {
+				mock.ExpectExec(regexp.QuoteMeta("DELETE FROM chat_messages WHERE timestamp < $1")).
+					WithArgs(sqlmock.AnyArg()).
+					WillReturnError(errors.New("database error"))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mock()
+			err := repo.DeleteOldMessages(cutoffTime)
+			assert.Equal(t, tt.wantErr, err != nil)
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}

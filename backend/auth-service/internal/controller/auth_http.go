@@ -51,6 +51,7 @@ func (c *AuthHTTPController) SignUp(ctx *gin.Context) {
 	user := entity.UserRegister{
 		Username: req.Username,
 		Password: req.Password,
+		Role:     req.Role,
 	}
 
 	createdUser, err := c.authUC.Register(ctx.Request.Context(), user)

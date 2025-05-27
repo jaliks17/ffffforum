@@ -47,14 +47,29 @@ export default function CreatePost({ onCreate }) {
   };
 
   return (
-    <div>
+    <div className="create-post-container">
       <h3>Создать пост</h3>
       {error && <div style={{ color: 'red' }}>{error}</div>}
-      <input placeholder="Заголовок" value={title} onChange={e => setTitle(e.target.value)} />
+      <input 
+        placeholder="Заголовок" 
+        value={title} 
+        onChange={e => setTitle(e.target.value)} 
+        className="create-post-container input"
+      />
       <br />
-      <textarea placeholder="Текст" value={content} onChange={e => setContent(e.target.value)} />
+      <textarea 
+        placeholder="Текст" 
+        value={content} 
+        onChange={e => setContent(e.target.value)} 
+        className="create-post-container textarea"
+      />
       <br />
-      <button onClick={handleSubmit}>Опубликовать</button>
+      <button 
+        onClick={handleSubmit} 
+        className="create-post-container button"
+      >
+        Опубликовать
+      </button>
     </div>
   );
 }

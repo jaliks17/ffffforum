@@ -37,6 +37,9 @@ func (c *AuthGRPCController) SignUp(
 
 	createdUser, err := c.authUC.Register(ctx, user)
 	if err != nil {
+		if err == usecase.ErrUserExists {
+			return nil, status.Error(codes.AlreadyExists, "user already exists")
+		}
 		return nil, status.Errorf(codes.Internal, "registration failed: %v", err)
 	}
 

@@ -3,10 +3,12 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"forum-service/internal/entity"
+
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 )
@@ -127,7 +129,8 @@ func TestGetCommentsByPostID(t *testing.T) {
 				rows := sqlmock.NewRows([]string{"id", "content", "author_id", "post_id", "author_name"})
 				mock.ExpectQuery(`SELECT`).WithArgs(int64(2)).WillReturnRows(rows)
 			},
-			want: []entity.Comment{},
+			want:    []entity.Comment{},
+			wantErr: false,
 		},
 		{
 			name:   "Database Error",
@@ -148,7 +151,145 @@ func TestGetCommentsByPostID(t *testing.T) {
 				t.Errorf("GetCommentsByPostID() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			if tt.wantErr {
+				return
+			}
+
+			if len(tt.want) == 0 {
+				if got != nil {
+					assert.Len(t, got, 0)
+				} else {
+					assert.Nil(t, got)
+				}
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestGetCommentByID(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	sqlxDB := sqlx.NewDb(db, "sqlmock")
+	repo := NewCommentRepository(sqlxDB)
+
+	tests := []struct {
+		name     string
+		commentID int64
+		mock     func()
+		want     *entity.Comment
+		wantErr  error
+	}{
+		{
+			name: "Success",
+			commentID: 1,
+			mock: func() {
+				rows := sqlmock.NewRows([]string{"id", "content", "author_id", "post_id", "author_name"}).
+					AddRow(1, "Test Comment", 1, 1, "testuser")
+				mock.ExpectQuery(`SELECT`).WithArgs(int64(1)).WillReturnRows(rows)
+			},
+			want: &entity.Comment{
+				ID:         1,
+				Content:    "Test Comment",
+				AuthorID:   1,
+				PostID:     1,
+				AuthorName: "testuser",
+			},
+			wantErr: nil,
+		},
+		{
+			name: "Not Found",
+			commentID: 2,
+			mock: func() {
+				mock.ExpectQuery(`SELECT`).WithArgs(int64(2)).WillReturnError(sql.ErrNoRows)
+			},
+			want: nil,
+			wantErr: ErrCommentNotFound,
+		},
+		{
+			name: "Database Error",
+			commentID: 3,
+			mock: func() {
+				mock.ExpectQuery(`SELECT`).WithArgs(int64(3)).WillReturnError(sql.ErrConnDone)
+			},
+			want: nil,
+			wantErr: sql.ErrConnDone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mock()
+
+			got, err := repo.GetCommentByID(context.Background(), tt.commentID)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("GetCommentByID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestDeleteComment(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	sqlxDB := sqlx.NewDb(db, "sqlmock")
+	repo := NewCommentRepository(sqlxDB)
+
+	tests := []struct {
+		name     string
+		commentID int64
+		mock     func()
+		wantErr  error
+	}{
+		{
+			name: "Success",
+			commentID: 1,
+			mock: func() {
+				mock.ExpectExec(`DELETE FROM comments`).WithArgs(int64(1)).WillReturnResult(sqlmock.NewResult(0, 1))
+			},
+			wantErr: nil,
+		},
+		{
+			name: "Not Found",
+			commentID: 2,
+			mock: func() {
+				mock.ExpectExec(`DELETE FROM comments`).WithArgs(int64(2)).WillReturnResult(sqlmock.NewResult(0, 0))
+			},
+			wantErr: ErrCommentNotFound,
+		},
+		{
+			name: "Database Error",
+			commentID: 3,
+			mock: func() {
+				mock.ExpectExec(`DELETE FROM comments`).WithArgs(int64(3)).WillReturnError(sql.ErrConnDone)
+			},
+			wantErr: sql.ErrConnDone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mock()
+
+			err := repo.DeleteComment(context.Background(), tt.commentID)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("DeleteComment() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 		})
 	}
 }

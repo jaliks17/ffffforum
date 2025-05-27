@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	pb "backend/proto"
@@ -45,6 +46,7 @@ func TestCommentUseCase_CreateComment(t *testing.T) {
 		comment     *entity.Comment
 		mockPost    func() *MockPostRepository
 		mockComment func() *MockCommentRepository
+		mockAuth    func() *MockAuthServiceClient
 		wantErr     bool
 		expectedErr error
 	}{
@@ -69,6 +71,15 @@ func TestCommentUseCase_CreateComment(t *testing.T) {
 					},
 				}
 			},
+			mockAuth: func() *MockAuthServiceClient {
+				return &MockAuthServiceClient{
+					GetUserProfileFunc: func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
+						return &pb.GetUserProfileResponse{
+							User: &pb.User{Username: "testuser"},
+						}, nil
+					},
+				}
+			},
 			wantErr: false,
 		},
 		{
@@ -88,6 +99,9 @@ func TestCommentUseCase_CreateComment(t *testing.T) {
 			mockComment: func() *MockCommentRepository {
 				return &MockCommentRepository{}
 			},
+			mockAuth: func() *MockAuthServiceClient {
+				return &MockAuthServiceClient{}
+			},
 			wantErr:     true,
 			expectedErr: repository.ErrPostNotFound,
 		},
@@ -97,7 +111,7 @@ func TestCommentUseCase_CreateComment(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockPost := tt.mockPost()
 			mockComment := tt.mockComment()
-			mockAuth := &MockAuthServiceClient{}
+			mockAuth := tt.mockAuth()
 
 			uc := NewCommentUseCase(mockComment, mockPost, mockAuth)
 
@@ -140,7 +154,7 @@ func TestCommentUseCase_GetCommentsByPostID(t *testing.T) {
 				return &MockAuthServiceClient{
 					GetUserProfileFunc: func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
 						return &pb.GetUserProfileResponse{
-							User: &pb.User{Username: "user" + string(rune('0'+in.UserId))},
+							User: &pb.User{Username: fmt.Sprintf("user%d", in.UserId)},
 						}, nil
 					},
 				}
@@ -192,6 +206,161 @@ func TestCommentUseCase_GetCommentsByPostID(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCommentUseCase_GetComment(t *testing.T) {
+	tests := []struct {
+		name string
+		commentID int64
+		mockComment func() *MockCommentRepository
+		want *entity.Comment
+		wantErr error
+	}{
+		{
+			name: "Success",
+			commentID: 1,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return &entity.Comment{ID: id, Content: "Test Content"}, nil
+					},
+				}
+			},
+			want: &entity.Comment{ID: 1, Content: "Test Content"},
+			wantErr: nil,
+		},
+		{
+			name: "Not Found",
+			commentID: 2,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return nil, ErrCommentNotFound
+					},
+				}
+			},
+			want: nil,
+			wantErr: ErrCommentNotFound,
+		},
+		{
+			name: "Database Error",
+			commentID: 3,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return nil, errors.New("database error")
+					},
+				}
+			},
+			want: nil,
+			wantErr: errors.New("database error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockComment := tt.mockComment()
+			uc := NewCommentUseCase(mockComment, nil, nil)
+
+			got, err := uc.GetComment(context.Background(), tt.commentID)
+
+			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCommentUseCase_DeleteComment(t *testing.T) {
+	tests := []struct {
+		name string
+		commentID int64
+		userID int64
+		mockComment func() *MockCommentRepository
+		wantErr error
+	}{
+		{
+			name: "Success - Author",
+			commentID: 1,
+			userID: 1,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return &entity.Comment{ID: id, AuthorID: 1}, nil
+					},
+					DeleteCommentFunc: func(ctx context.Context, id int64) error {
+						return nil
+					},
+				}
+			},
+			wantErr: nil,
+		},
+		{
+			name: "Not Found",
+			commentID: 2,
+			userID: 1,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return nil, ErrCommentNotFound
+					},
+				}
+			},
+			wantErr: ErrCommentNotFound,
+		},
+		{
+			name: "Forbidden",
+			commentID: 1,
+			userID: 2,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return &entity.Comment{ID: id, AuthorID: 1}, nil
+					},
+				}
+			},
+			wantErr: ErrForbidden,
+		},
+		{
+			name: "GetCommentByID Error",
+			commentID: 1,
+			userID: 1,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return nil, errors.New("database error")
+					},
+				}
+			},
+			wantErr: errors.New("database error"),
+		},
+		{
+			name: "DeleteComment Error",
+			commentID: 1,
+			userID: 1,
+			mockComment: func() *MockCommentRepository {
+				return &MockCommentRepository{
+					GetCommentByIDFunc: func(ctx context.Context, id int64) (*entity.Comment, error) {
+						return &entity.Comment{ID: id, AuthorID: 1}, nil
+					},
+					DeleteCommentFunc: func(ctx context.Context, id int64) error {
+						return errors.New("delete error")
+					},
+				}
+			},
+			wantErr: errors.New("delete error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockComment := tt.mockComment()
+			uc := NewCommentUseCase(mockComment, nil, nil)
+
+			err := uc.DeleteComment(context.Background(), tt.commentID, tt.userID)
+
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }

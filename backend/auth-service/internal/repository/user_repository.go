@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"auth-service/internal/entity"
@@ -99,14 +98,6 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*e
 		}
 		return nil, err
 	}
-
-	fmt.Printf("DEBUG: User retrieved from DB - Username: %s, PasswordHash: %s\n", user.Username, user.Password)
-	fmt.Printf("DEBUG: PasswordHash bytes from DB: %v\n", []byte(user.Password))
-	fmt.Printf("DEBUG: PasswordHash hex from DB: %x\n", []byte(user.Password))
-	fmt.Printf("DEBUG: PasswordHash length: %d\n", len(user.Password))
-	fmt.Printf("DEBUG: PasswordHash rune count: %d\n", len([]rune(user.Password)))
-	fmt.Printf("DEBUG: PasswordHash first 10 bytes: %x\n", []byte(user.Password)[:10])
-	fmt.Printf("DEBUG: PasswordHash last 10 bytes: %x\n", []byte(user.Password)[len(user.Password)-10:])
 
 	return &user, nil
 }

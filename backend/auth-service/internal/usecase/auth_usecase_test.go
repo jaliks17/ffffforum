@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -239,6 +240,212 @@ func TestLogin(t *testing.T) {
 				assert.NotEmpty(t, token.AccessToken)
 				assert.Equal(t, "Bearer", token.TokenType)
 				assert.Equal(t, int64(86400), token.ExpiresIn)
+			}
+		})
+	}
+}
+
+func TestValidateToken(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockSessionRepo := new(MockSessionRepository)
+	logger, _ := logger.NewLogger("info")
+	config := &config.AuthConfig{
+		Secret:     "test-secret",
+		Expiration: time.Hour * 24,
+	}
+
+	uc := NewAuthUseCase(mockUserRepo, mockSessionRepo, config, logger)
+
+	// Создаем валидный токен через Login
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	mockUserRepo.On("GetByUsername", mock.Anything, "testuser").Return(&entity.User{
+		ID:       1,
+		Username: "testuser",
+		Password: string(hashedPassword),
+		Role:     "user",
+	}, nil)
+	validToken, _ := uc.Login(context.Background(), entity.UserLogin{
+		Username: "testuser",
+		Password: "password123",
+	})
+
+	tests := []struct {
+		name          string
+		token         string
+		expectedError bool
+	}{
+		{
+			name:          "empty token",
+			token:         "",
+			expectedError: true,
+		},
+		{
+			name:          "invalid token format",
+			token:         "invalid.token.format",
+			expectedError: true,
+		},
+		{
+			name:          "valid token",
+			token:         validToken.AccessToken,
+			expectedError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := uc.ValidateToken(tt.token)
+			if tt.expectedError {
+				assert.Error(t, err)
+				if token != nil {
+					assert.False(t, token.Valid)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, token)
+				assert.True(t, token.Valid)
+			}
+		})
+	}
+}
+
+func TestRefreshToken(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockSessionRepo := new(MockSessionRepository)
+	logger, _ := logger.NewLogger("info")
+	config := &config.AuthConfig{
+		Secret:     "test-secret",
+		Expiration: time.Hour * 24,
+	}
+
+	uc := NewAuthUseCase(mockUserRepo, mockSessionRepo, config, logger)
+
+	tests := []struct {
+		name          string
+		refreshToken  string
+		mockSetup     func()
+		expectedError bool
+	}{
+		{
+			name:         "not implemented",
+			refreshToken: "valid-refresh-token",
+			mockSetup:    func() {},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			token, err := uc.RefreshToken(context.Background(), tt.refreshToken)
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.Nil(t, token)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, token)
+			}
+		})
+	}
+}
+
+func TestLogout(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockSessionRepo := new(MockSessionRepository)
+	logger, _ := logger.NewLogger("info")
+	config := &config.AuthConfig{
+		Secret:     "test-secret",
+		Expiration: time.Hour * 24,
+	}
+
+	uc := NewAuthUseCase(mockUserRepo, mockSessionRepo, config, logger)
+
+	tests := []struct {
+		name          string
+		token         string
+		mockSetup     func()
+		expectedError bool
+	}{
+		{
+			name:         "not implemented",
+			token:        "valid-token",
+			mockSetup:    func() {},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			err := uc.Logout(context.Background(), tt.token)
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGetUserByID(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockSessionRepo := new(MockSessionRepository)
+	logger, _ := logger.NewLogger("info")
+	config := &config.AuthConfig{
+		Secret:     "test-secret",
+		Expiration: time.Hour * 24,
+	}
+
+	uc := NewAuthUseCase(mockUserRepo, mockSessionRepo, config, logger)
+
+	tests := []struct {
+		name          string
+		userID        int64
+		mockSetup     func()
+		expectedError error
+	}{
+		{
+			name:   "user found",
+			userID: 1,
+			mockSetup: func() {
+				mockUserRepo.On("GetByID", mock.Anything, int64(1)).Return(&entity.User{
+					ID:       1,
+					Username: "testuser",
+					Role:     "user",
+				}, nil)
+			},
+			expectedError: nil,
+		},
+		{
+			name:   "user not found",
+			userID: 999,
+			mockSetup: func() {
+				mockUserRepo.On("GetByID", mock.Anything, int64(999)).Return(nil, nil)
+			},
+			expectedError: ErrUserNotFound,
+		},
+		{
+			name:   "repository error",
+			userID: 1,
+			mockSetup: func() {
+				mockUserRepo.On("GetByID", mock.Anything, int64(1)).Return(nil, assert.AnError)
+			},
+			expectedError: errors.New("internal server error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockUserRepo.ExpectedCalls = nil
+			tt.mockSetup()
+			user, err := uc.GetUserByID(context.Background(), tt.userID)
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError.Error())
+				assert.Nil(t, user)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, user)
+				assert.Equal(t, tt.userID, user.ID)
 			}
 		})
 	}

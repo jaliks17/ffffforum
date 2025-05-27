@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"time"
 
 	pb "backend/proto"
 	_ "chat-service/docs"
@@ -65,6 +66,22 @@ func main() {
 	h := handler.NewMessageHandler(uc, authClient) // Передача authClient в обработчик
 
 	go h.HandleMessages()
+
+	// Горутина для удаления старых сообщений каждые 24 часа
+	go func() {
+		log.Println("Starting old message cleanup routine")
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			// Определяем время, старше которого сообщения должны быть удалены (например, 7 дней)
+			cutoff := time.Now().Add(-7 * 24 * time.Hour)
+			log.Printf("Running old message cleanup for messages before: %v", cutoff)
+			if err := uc.DeleteOldMessages(cutoff); err != nil {
+				log.Printf("Error during old message cleanup: %v", err)
+			}
+		}
+	}()
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{

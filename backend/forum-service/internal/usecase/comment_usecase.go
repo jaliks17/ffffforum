@@ -24,7 +24,7 @@ type CommentUseCaseInterface interface {
 
 type CommentUseCase struct {
 	CommentRepo repository.CommentRepository
-	postRepo    repository.PostRepository
+	PostRepo    repository.PostRepository
 	AuthClient  pb.AuthServiceClient
 }
 
@@ -35,14 +35,14 @@ func NewCommentUseCase(
 ) *CommentUseCase {
 	return &CommentUseCase{
 		CommentRepo: commentRepo,
-		postRepo:    postRepo,
+		PostRepo:    postRepo,
 		AuthClient:  authClient,
 	}
 }
 
 func (uc *CommentUseCase) CreateComment(ctx context.Context, comment *entity.Comment) error {
 
-	_, err := uc.postRepo.GetPostByID(ctx, comment.PostID)
+	_, err := uc.PostRepo.GetPostByID(ctx, comment.PostID)
 	if err != nil {
 		return err
 	}
@@ -58,12 +58,27 @@ func (uc *CommentUseCase) CreateComment(ctx context.Context, comment *entity.Com
 
 func (uc *CommentUseCase) GetCommentsByPostID(ctx context.Context, postID int64) ([]entity.Comment, error) {
 
-	_, err := uc.postRepo.GetPostByID(ctx, postID)
+	_, err := uc.PostRepo.GetPostByID(ctx, postID)
 	if err != nil {
 		return nil, err
 	}
 
-	return uc.CommentRepo.GetCommentsByPostID(ctx, postID)
+	comments, err := uc.CommentRepo.GetCommentsByPostID(ctx, postID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch author names for each comment
+	for i := range comments {
+		userResp, err := uc.AuthClient.GetUserProfile(ctx, &pb.GetUserProfileRequest{UserId: comments[i].AuthorID})
+		if err != nil || userResp == nil || userResp.User == nil {
+			comments[i].AuthorName = "Unknown"
+			continue
+		}
+		comments[i].AuthorName = userResp.User.Username
+	}
+
+	return comments, nil
 }
 
 func (uc *CommentUseCase) DeleteComment(ctx context.Context, id int64, userID int64) error {

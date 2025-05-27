@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	"chat-service/internal/entity"
 
@@ -13,6 +14,7 @@ import (
 type MessageRepository interface {
 	SaveMessage(msg *entity.Message) error
 	GetMessages() ([]entity.Message, error)
+	DeleteOldMessages(before time.Time) error
 }
 
 type messageRepository struct {
@@ -100,4 +102,20 @@ func (repo *messageRepository) GetMessages() ([]entity.Message, error) {
 	// Log the fetched messages before returning
 	log.Printf("Fetched messages content: %+v", messages)
 	return messages, nil
+}
+
+func (repo *messageRepository) DeleteOldMessages(before time.Time) error {
+	log.Printf("Deleting messages before: %v", before)
+
+	query := "DELETE FROM chat_messages WHERE timestamp < $1"
+
+	_, err := repo.db.Exec(query, before)
+	if err != nil {
+		log.Printf("Error deleting old messages: %v", err)
+		return fmt.Errorf("error deleting old messages: %w", err)
+	}
+
+	log.Println("Old messages deleted successfully")
+
+	return nil
 }

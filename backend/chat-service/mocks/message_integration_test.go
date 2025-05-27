@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	"backend/proto"
 	"chat-service/internal/entity"
@@ -43,7 +44,7 @@ const (
 	testDBPort     = "5432"
 	testDBUser     = "user"
 	testDBPassword = "555527"
-	testDBName     = "database"
+	testDBName     = "auth_service"
 )
 
 func (suite *MessageIntegrationTestSuite) SetupSuite() {
@@ -205,8 +206,8 @@ func TestGetMessages_EdgeCases(t *testing.T) {
 	repo := repository.NewMessageRepository(db)
 
 	t.Run("empty result", func(t *testing.T) {
-		mock.ExpectQuery("SELECT id, author_id, author_name, content FROM chat_messages").
-			WillReturnRows(sqlmock.NewRows([]string{"id", "author_id", "author_name", "content"}))
+		mock.ExpectQuery("SELECT id, user_id, username, content as message, timestamp FROM chat_messages ORDER BY timestamp ASC").
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "username", "message", "timestamp"}))
 
 		messages, err := repo.GetMessages()
 		require.NoError(t, err)
@@ -214,9 +215,9 @@ func TestGetMessages_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("scan error", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "author_id"}).
-			AddRow(1, "user1")
-		mock.ExpectQuery("SELECT id, author_id, author_name, content FROM chat_messages").
+		rows := sqlmock.NewRows([]string{"id", "user_id"}).
+			AddRow(1, 1)
+		mock.ExpectQuery("SELECT id, user_id, username, content as message, timestamp FROM chat_messages ORDER BY timestamp ASC").
 			WillReturnRows(rows)
 
 		_, err := repo.GetMessages()
@@ -286,10 +287,10 @@ func TestMessageHandler(t *testing.T) {
 		},
 	}
 
-	authClient := new(mockAuthServiceClient)
-	h := handler.NewMessageHandler(mockUC, authClient)
-
 	t.Run("GetMessages success", func(t *testing.T) {
+		authClient := new(mockAuthServiceClient)
+		h := handler.NewMessageHandler(mockUC, authClient)
+
 		router := gin.Default()
 		router.GET("/messages", h.GetMessages)
 
@@ -312,6 +313,7 @@ func TestMessageHandler(t *testing.T) {
 			},
 		}
 
+		authClient := new(mockAuthServiceClient)
 		errorHandler := handler.NewMessageHandler(errorUC, authClient)
 
 		router := gin.Default()
@@ -325,11 +327,15 @@ func TestMessageHandler(t *testing.T) {
 	})
 
 	t.Run("HandleConnections websocket upgrade", func(t *testing.T) {
+		authClient := new(mockAuthServiceClient)
+		h := handler.NewMessageHandler(mockUC, authClient)
 
 		myWeb.Clients = make(map[*websocket.Conn]int)
 
-		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authClient.On("ValidateSession", mock.Anything, mock.Anything).Return(&proto.ValidateSessionResponse{Valid: true, UserId: 1, UserRole: "testrole"}, nil).Once()
+		authClient.On("GetUserProfile", mock.Anything, mock.Anything).Return(&proto.GetUserProfileResponse{User: &proto.User{Id: 1, Username: "testuser", Role: "testrole"}}, nil).Once()
 
+		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, _ := gin.CreateTestContext(w)
 			c.Request = r
 			h.HandleConnections(c)
@@ -347,13 +353,29 @@ func TestMessageHandler(t *testing.T) {
 		err = ws.WriteJSON(testMsg)
 		require.NoError(t, err)
 
-		assert.Equal(t, 1, mockUC.saveCount)
+		authClient.AssertExpectations(t)
 	})
 
 	t.Run("HandleMessages broadcast", func(t *testing.T) {
+		authClient := new(mockAuthServiceClient)
+		h := handler.NewMessageHandler(mockUC, authClient)
 
 		myWeb.Clients = make(map[*websocket.Conn]int)
-		myWeb.Broadcast = make(chan entity.Message)
+		myWeb.Broadcast = make(chan entity.Message, 10)
+
+		authClient.On("ValidateSession", mock.Anything, mock.MatchedBy(func(req *proto.ValidateSessionRequest) bool {
+			return req.Token == "token1"
+		})).Return(&proto.ValidateSessionResponse{Valid: true, UserId: 1, UserRole: "testrole"}, nil).Once()
+		authClient.On("GetUserProfile", mock.Anything, mock.MatchedBy(func(req *proto.GetUserProfileRequest) bool {
+			return req.UserId == 1
+		})).Return(&proto.GetUserProfileResponse{User: &proto.User{Id: 1, Username: "user1", Role: "testrole"}}, nil).Once()
+
+		authClient.On("ValidateSession", mock.Anything, mock.MatchedBy(func(req *proto.ValidateSessionRequest) bool {
+			return req.Token == "token2"
+		})).Return(&proto.ValidateSessionResponse{Valid: true, UserId: 2, UserRole: "testrole"}, nil).Once()
+		authClient.On("GetUserProfile", mock.Anything, mock.MatchedBy(func(req *proto.GetUserProfileRequest) bool {
+			return req.UserId == 2
+		})).Return(&proto.GetUserProfileResponse{User: &proto.User{Id: 2, Username: "user2", Role: "testrole"}}, nil).Once()
 
 		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, _ := gin.CreateTestContext(w)
@@ -363,11 +385,11 @@ func TestMessageHandler(t *testing.T) {
 		defer s.Close()
 
 		u := "ws" + strings.TrimPrefix(s.URL, "http")
-		ws1, _, err := websocket.DefaultDialer.Dial(u+"/ws", nil)
+		ws1, _, err := websocket.DefaultDialer.Dial(u+"/ws?token=token1", nil)
 		require.NoError(t, err)
 		defer ws1.Close()
 
-		ws2, _, err := websocket.DefaultDialer.Dial(u+"/ws", nil)
+		ws2, _, err := websocket.DefaultDialer.Dial(u+"/ws?token=token2", nil)
 		require.NoError(t, err)
 		defer ws2.Close()
 
@@ -377,6 +399,9 @@ func TestMessageHandler(t *testing.T) {
 		myWeb.Broadcast <- broadcastMsg
 
 		var msg1, msg2 entity.Message
+		ws1.SetReadDeadline(time.Now().Add(time.Second))
+		ws2.SetReadDeadline(time.Now().Add(time.Second))
+
 		err = ws1.ReadJSON(&msg1)
 		require.NoError(t, err)
 		assert.Equal(t, broadcastMsg.Message, msg1.Message)
@@ -384,6 +409,12 @@ func TestMessageHandler(t *testing.T) {
 		err = ws2.ReadJSON(&msg2)
 		require.NoError(t, err)
 		assert.Equal(t, broadcastMsg.Message, msg2.Message)
+
+		ws1.Close()
+		ws2.Close()
+		time.Sleep(100 * time.Millisecond)
+
+		authClient.AssertExpectations(t)
 	})
 }
 

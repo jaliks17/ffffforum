@@ -37,7 +37,6 @@ const App = () => {
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <MainLayout>
           <Routes>
-            <Route path="/" element={<Home />} />
                     <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
                     <Route path="/posts" element={

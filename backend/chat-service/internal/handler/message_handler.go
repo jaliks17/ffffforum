@@ -72,9 +72,8 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 				case <-ticker.C:
 					if err := ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
 						log.Printf("Error sending ping to demo user: %v", err)
-						// При ошибке пинга, сигнализируем о завершении горутины чтения сообщений
 						select {
-						case <-done: // Проверяем, не закрыт ли уже канал
+						case <-done:
 						default:
 							close(done)
 						}
@@ -103,14 +102,18 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 				var incMsg incomingMessage
 				err := ws.ReadJSON(&incMsg)
 				if err != nil {
-					log.Printf("Error reading message from demo user: %v", err)
+					if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+						log.Printf("Client closed connection normally")
+					} else {
+						log.Printf("Error reading message from demo user: %v", err)
+					}
 					return
 				}
 
 				// Создаем entity.Message для сохранения и рассылки
 				msg := &entity.Message{
-					UserID:   1, // Тестовый ID для демо
-					Username: "Demo User", // Тестовое имя для демо
+					UserID:   1,
+					Username: "Demo User",
 					Message:  incMsg.Message,
 				}
 
@@ -119,13 +122,13 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 					log.Printf("Error saving message from demo user: %v", err)
 					continue
 				}
-				myWeb.Broadcast <- *msg // Отправляем в канал для HandleMessages
+				myWeb.Broadcast <- *msg
 			}
 		}()
 
-		<-done // Ожидаем сигнала завершения от горутин пинга или чтения
+		<-done
 		log.Printf("HandleConnections for demo user finished")
-		return // Завершаем HandleConnections для демо пользователя
+		return
 	}
 
 	// Валидация токена с помощью Auth Service
@@ -140,26 +143,17 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	if !validateResp.GetValid() {
+	if validateResp == nil || !validateResp.GetValid() {
 		log.Printf("Invalid token: %s", token)
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
-	// Используем UserID из ValidateSessionResponse
 	userID := validateResp.GetUserId()
 	userRole := validateResp.GetUserRole()
 	log.Printf("Token validated successfully. User ID: %d, Role: %s", userID, userRole)
 
-	// Проверяем, есть ли уже активное соединение для этого пользователя
-	if existingConn := myWeb.GetClientConnection(int(userID)); existingConn != nil {
-		log.Printf("User %d already has an active connection, closing it", userID)
-		myWeb.CloseConnection(existingConn)
-		// Даем время на закрытие соединения
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// Получаем информацию о пользователе, включая имя, используя GetUserProfile
+	// Получаем информацию о пользователе
 	userProfileReq := &pb.GetUserProfileRequest{UserId: userID}
 	userProfileResp, err := h.AuthClient.GetUserProfile(ctx, userProfileReq)
 	if err != nil {
@@ -170,7 +164,7 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 	if userProfileResp.GetUser() == nil {
 		log.Printf("User profile not found for user ID: %d", userID)
 		c.AbortWithStatus(http.StatusInternalServerError)
-		return	
+		return
 	}
 	username := userProfileResp.GetUser().GetUsername()
 	log.Printf("Fetched username: %s for user ID: %d", username, userID)
@@ -182,16 +176,19 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 	}
 	defer func() {
 		log.Printf("WebSocket connection closed and cleaning up for user %d", userID)
-		myWeb.CloseConnection(ws)
+		if ws != nil {
+			myWeb.CloseConnection(ws)
+		}
 		log.Printf("WebSocket connection closed and cleaned up complete for user %d", userID)
 	}()
 
 	log.Printf("WebSocket connection upgraded successfully for user %d", userID)
-	log.Printf("WebSocket connection established for user %d", userID)
 	
 	// Добавляем клиента в пул
 	if !myWeb.AddClient(ws, int(userID)) {
 		log.Printf("Failed to add client to pool for user %d", userID)
+		ws.Close()
+		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
@@ -245,27 +242,19 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 			log.Printf("Waiting to read message from user %d", userID)
 
 			messageType, p, err := ws.ReadMessage()
-			log.Printf("ReadMessage completed for user %d. Type: %d, Length: %d, Error: %v", userID, messageType, len(p), err)
-
 			if err != nil {
-				log.Printf("Error reading message from user %d: %v", userID, err)
-				// Handle connection close gracefully
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 					log.Printf("Client %d closed connection normally", userID)
 				} else {
-					log.Printf("Unknown WebSocket error for user %d: %v", userID, err)
+					log.Printf("Error reading message from user %d: %v", userID, err)
 				}
-				return // Exit the read loop on error
+				return
 			}
 
 			// Only process text messages
 			if messageType == websocket.TextMessage {
 				var incMsg incomingMessage
-				// Пытаемся десериализовать JSON
-				log.Printf("Attempting to unmarshal message from user %d", userID)
 				err = json.Unmarshal(p, &incMsg)
-				log.Printf("Unmarshal completed for user %d. Error: %v, Message Type: %s", userID, err, incMsg.Type)
-
 				if err != nil {
 					log.Printf("Error unmarshalling message from user %d: %v", userID, err)
 					continue
@@ -276,8 +265,6 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 				// Обработка сообщения в зависимости от типа
 				switch incMsg.Type {
 				case "message":
-					log.Printf("Processing incoming message from user %d: %+v", userID, incMsg)
-					// Создаем entity.Message для сохранения и рассылки
 					msg := &entity.Message{
 						UserID:    int(userID),
 						Username:  username,
@@ -285,19 +272,11 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 						Timestamp: time.Now(),
 					}
 
-					log.Printf("Received and parsed message from user %d: %+v", userID, msg)
-
-					// Сохраняем сообщение в базу данных
-					log.Printf("Attempting to save message from user %d", userID)
-					err = h.Uc.SaveMessage(msg)
-					log.Printf("SaveMessage completed for user %d. Error: %v", userID, err)
-
-					if err != nil {
+					if err := h.Uc.SaveMessage(msg); err != nil {
 						log.Printf("Error saving message for user %d: %v", userID, err)
 						continue
 					}
 
-					// Отправляем сообщение в канал для трансляции
 					myWeb.Broadcast <- *msg
 				default:
 					log.Printf("Received unknown message type from user %d: %s", userID, incMsg.Type)
@@ -308,7 +287,7 @@ func (h *MessageHandler) HandleConnections(c *gin.Context) {
 		}
 	}()
 
-	<-done // Ожидаем сигнала завершения от горутин пинга или чтения
+	<-done
 	log.Printf("HandleConnections for user %d finished", userID)
 }
 
@@ -325,15 +304,15 @@ func (h *MessageHandler) HandleMessages() {
 	}
 }
 
-// GetMessages получает список всех сообщений.
-//
-// @Summary Получить сообщения
-// @Description Возвращает все сообщения из чата
+// GetMessages godoc
+// @Summary Get chat messages history
+// @Description Get a list of recent chat messages
 // @Tags messages
+// @Accept json
 // @Produce json
-// @Success 200 {array} entity.Message
-// @Failure 500 {object} entity.ErrorResponse
-// @Router /messages [get]
+// @Success 200 {array} entity.Message "List of messages"
+// @Failure 500 {object} entity.ErrorResponse "Internal Server Error"
+// @Router /api/v1/messages [get]
 func (h *MessageHandler) GetMessages(c *gin.Context) {
 	messages, err := h.Uc.GetMessages()
 	if err != nil {

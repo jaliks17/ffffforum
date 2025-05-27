@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,15 +14,8 @@ import (
 	"forum-service/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
-
-func NewMockLogger() *logger.Logger {
-	return &logger.Logger{
-		SugaredLogger: zap.NewNop().Sugar(),
-	}
-}
 
 func TestPostUsecase_UpdatePost(t *testing.T) {
 	now := time.Now()
@@ -157,12 +151,12 @@ func TestPostUsecase_UpdatePost(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockAuth := tt.mockAuth()
 			mockRepo := tt.mockRepo()
-			mockLogger := NewMockLogger()
+			logger, _ := logger.NewLogger("info")
 
 			uc := &PostUsecase{
 				postRepo:   mockRepo,
 				authClient: mockAuth,
-				logger:     mockLogger,
+				logger:     logger,
 			}
 
 			got, err := uc.UpdatePost(context.Background(), tt.token, tt.postID, tt.title, tt.content)
@@ -173,7 +167,7 @@ func TestPostUsecase_UpdatePost(t *testing.T) {
 
 			if tt.wantErr {
 				if tt.expectedErr != nil {
-					assert.ErrorIs(t, err, tt.expectedErr)
+					assert.EqualError(t, err, tt.expectedErr.Error())
 				}
 				return
 			}
@@ -320,12 +314,12 @@ func TestPostUsecase_DeletePost(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockAuth := tt.mockAuth()
 			mockRepo := tt.mockRepo()
-			mockLogger := NewMockLogger()
+			logger, _ := logger.NewLogger("info")
 
 			uc := &PostUsecase{
 				postRepo:   mockRepo,
 				authClient: mockAuth,
-				logger:     mockLogger,
+				logger:     logger,
 			}
 
 			err := uc.DeletePost(context.Background(), tt.token, tt.postID)
@@ -339,138 +333,6 @@ func TestPostUsecase_DeletePost(t *testing.T) {
 					assert.EqualError(t, err, tt.expectedErr.Error())
 				}
 			}
-		})
-	}
-}
-
-func TestPostUsecase_GetPosts(t *testing.T) {
-	now := time.Now()
-	posts := []*entity.Post{
-		{
-			ID:        1,
-			Title:     "Post 1",
-			Content:   "Content 1",
-			AuthorID:  1,
-			CreatedAt: now,
-		},
-		{
-			ID:        2,
-			Title:     "Post 2",
-			Content:   "Content 2",
-			AuthorID:  2,
-			CreatedAt: now,
-		},
-	}
-
-	tests := []struct {
-		name        string
-		mockAuth    func() *MockAuthServiceClient
-		mockRepo    func() *MockPostRepository
-		wantPosts   []*entity.Post
-		wantNames   map[int]string
-		wantErr     bool
-		expectedErr error
-	}{
-		{
-			name: "Success with usernames",
-			mockAuth: func() *MockAuthServiceClient {
-				return &MockAuthServiceClient{
-					GetUserProfileFunc: func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
-						return &pb.GetUserProfileResponse{
-							User: &pb.User{
-								Id:       in.UserId,
-								Username: "user" + string(rune(in.UserId)),
-							},
-						}, nil
-					},
-				}
-			},
-			mockRepo: func() *MockPostRepository {
-				return &MockPostRepository{
-					GetPostsFunc: func(ctx context.Context) ([]*entity.Post, error) {
-						return posts, nil
-					},
-				}
-			},
-			wantPosts: posts,
-			wantNames: map[int]string{
-				1: "user1",
-				2: "user2",
-			},
-			wantErr: false,
-		},
-		{
-			name: "Error getting posts",
-			mockAuth: func() *MockAuthServiceClient {
-				return &MockAuthServiceClient{}
-			},
-			mockRepo: func() *MockPostRepository {
-				return &MockPostRepository{
-					GetPostsFunc: func(ctx context.Context) ([]*entity.Post, error) {
-						return nil, errors.New("database error")
-					},
-				}
-			},
-			wantErr:     true,
-			expectedErr: errors.New("database error"),
-		},
-		{
-			name: "Partial user info",
-			mockAuth: func() *MockAuthServiceClient {
-				return &MockAuthServiceClient{
-					GetUserProfileFunc: func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
-						if in.UserId == 1 {
-							return &pb.GetUserProfileResponse{
-								User: &pb.User{Username: "user1"},
-							}, nil
-						}
-						return nil, errors.New("user not found")
-					},
-				}
-			},
-			mockRepo: func() *MockPostRepository {
-				return &MockPostRepository{
-					GetPostsFunc: func(ctx context.Context) ([]*entity.Post, error) {
-						return posts, nil
-					},
-				}
-			},
-			wantPosts: posts,
-			wantNames: map[int]string{
-				1: "user1",
-				2: "Unknown",
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockAuth := tt.mockAuth()
-			mockRepo := tt.mockRepo()
-			mockLogger := NewMockLogger()
-
-			uc := &PostUsecase{
-				postRepo:   mockRepo,
-				authClient: mockAuth,
-				logger:     mockLogger,
-			}
-
-			gotPosts, gotNames, err := uc.GetPosts(context.Background())
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetPosts() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tt.wantErr {
-				if tt.expectedErr != nil {
-					assert.EqualError(t, err, tt.expectedErr.Error())
-				}
-				return
-			}
-
-			assert.Equal(t, tt.wantPosts, gotPosts)
-			assert.Equal(t, tt.wantNames, gotNames)
 		})
 	}
 }
@@ -572,12 +434,12 @@ func TestPostUsecase_CreatePost(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockAuth := tt.mockAuth()
 			mockRepo := tt.mockRepo()
-			mockLogger := NewMockLogger()
+			logger, _ := logger.NewLogger("info")
 
 			uc := &PostUsecase{
 				postRepo:   mockRepo,
 				authClient: mockAuth,
-				logger:     mockLogger,
+				logger:     logger,
 			}
 
 			got, err := uc.CreatePost(context.Background(), tt.token, tt.title, tt.content)
@@ -598,6 +460,148 @@ func TestPostUsecase_CreatePost(t *testing.T) {
 			assert.Equal(t, tt.want.Content, got.Content)
 			assert.Equal(t, tt.want.AuthorID, got.AuthorID)
 			assert.WithinDuration(t, time.Now(), got.CreatedAt, time.Second)
+		})
+	}
+}
+
+func TestPostUsecase_GetPosts(t *testing.T) {
+	tests := []struct {
+		name           string
+		mockPosts      []*entity.Post
+		mockError      error
+		mockUserError  error
+		expectedPosts  []*entity.Post
+		expectedNames  map[int]string
+		expectedError  error
+		mockAuth       func() *MockAuthServiceClient
+	}{
+		{
+			name: "Success with usernames",
+			mockPosts: []*entity.Post{
+				{ID: 1, AuthorID: 1},
+				{ID: 2, AuthorID: 2},
+			},
+			expectedPosts: []*entity.Post{
+				{ID: 1, AuthorID: 1},
+				{ID: 2, AuthorID: 2},
+			},
+			expectedNames: map[int]string{
+				1: "user1",
+				2: "user2",
+			},
+			mockAuth: func() *MockAuthServiceClient {
+				return &MockAuthServiceClient{
+					GetUserProfileFunc: func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
+						return &pb.GetUserProfileResponse{
+							User: &pb.User{Username: fmt.Sprintf("user%d", in.UserId)},
+						}, nil
+					},
+				}
+			},
+		},
+		{
+			name:      "Error getting posts",
+			mockError: errors.New("database error"),
+			expectedError: errors.New("database error"),
+			mockAuth: func() *MockAuthServiceClient { return &MockAuthServiceClient{} },
+		},
+		{
+			name: "Partial user info",
+			mockPosts: []*entity.Post{
+				{ID: 1, AuthorID: 1},
+				{ID: 2, AuthorID: 2},
+			},
+			mockUserError: errors.New("user not found"),
+			expectedPosts: []*entity.Post{
+				{ID: 1, AuthorID: 1},
+				{ID: 2, AuthorID: 2},
+			},
+			expectedNames: map[int]string{
+				1: "user1",
+				2: "Unknown",
+			},
+			mockAuth: func() *MockAuthServiceClient {
+				return &MockAuthServiceClient{
+					GetUserProfileFunc: func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
+						if in.UserId == 1 {
+							return &pb.GetUserProfileResponse{
+								User: &pb.User{Username: "user1"},
+							}, nil
+						} else if in.UserId == 2 {
+							return nil, errors.New("user not found")
+						}
+						return nil, errors.New("unexpected user id")
+					},
+				}
+			},
+		},
+		{
+			name:          "Empty Posts List",
+			mockPosts:     []*entity.Post{},
+			expectedPosts: []*entity.Post{},
+			expectedNames: map[int]string{},
+			mockAuth: func() *MockAuthServiceClient { return &MockAuthServiceClient{} },
+		},
+		{
+			name: "GetUserProfile Error",
+			mockPosts: []*entity.Post{
+				{ID: 1, AuthorID: 1},
+			},
+			mockUserError: errors.New("profile error"),
+			expectedPosts: []*entity.Post{
+				{ID: 1, AuthorID: 1},
+			},
+			expectedNames: map[int]string{
+				1: "Unknown",
+			},
+			mockAuth: func() *MockAuthServiceClient {
+				return &MockAuthServiceClient{
+					GetUserProfileFunc: func(ctx context.Context, in *pb.GetUserProfileRequest, opts ...grpc.CallOption) (*pb.GetUserProfileResponse, error) {
+						return nil, errors.New("profile error")
+					},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &MockPostRepository{
+				GetPostsFunc: func(ctx context.Context) ([]*entity.Post, error) {
+					return tt.mockPosts, tt.mockError
+				},
+			}
+
+			mockAuth := tt.mockAuth()
+
+			logger, _ := logger.NewLogger("info")
+
+			uc := &PostUsecase{
+				postRepo:   mockRepo,
+				authClient: mockAuth,
+				logger:     logger,
+			}
+
+			posts, names, err := uc.GetPosts(context.Background())
+
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedError.Error(), err.Error())
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, len(tt.expectedPosts), len(posts))
+			
+			// Compare posts without timestamps
+			for i, expectedPost := range tt.expectedPosts {
+				assert.Equal(t, expectedPost.ID, posts[i].ID)
+				assert.Equal(t, expectedPost.AuthorID, posts[i].AuthorID)
+				assert.Equal(t, expectedPost.Title, posts[i].Title)
+				assert.Equal(t, expectedPost.Content, posts[i].Content)
+			}
+
+			assert.Equal(t, tt.expectedNames, names)
 		})
 	}
 }

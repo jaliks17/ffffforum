@@ -22,8 +22,21 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"google.golang.org/grpc"
 )
+
+// @title Auth Microservice API
+// @description This is an authentication and authorization microservice.
+// @version 1.0
+// @host localhost:8081
+// @BasePath /
+// @schemes http
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 
 var (
 	grpcPort        = flag.String("grpc-port", ":50051", "gRPC server port")
@@ -111,6 +124,9 @@ func startHTTPServer(port string, controller *controller.AuthHTTPController, log
 			authGroup.GET("/validate", controller.ValidateToken)
 		}
 	}
+
+	// Add Swagger UI route
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/swagger/doc.json")))
 
 	logger.Info("Starting HTTP server on %s", port)
 	if err := http.ListenAndServe(port, router); err != nil {

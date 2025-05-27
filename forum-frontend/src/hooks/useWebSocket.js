@@ -102,24 +102,32 @@ const useWebSocket = (webSocketUrl, apiUrl, token) => {
             };
 
             currentWs.onclose = (event) => {
-                console.log('useWebSocket Effect: WebSocket closed:', event.code, event.reason);
+                console.log('useWebSocket Effect: WebSocket закрыт:', event.code, event.reason);
                 setStatus('disconnected');
                 ws.current = null; // Очищаем ref
 
+                // Обработка различных кодов закрытия
                 if (event.code === 1000) {
-                    console.log('useWebSocket Effect: WebSocket closed normally.');
-                    return; // Не переподключаемся при нормальном закрытии
+                    if (event.reason === 'Connection replaced by new client') {
+                        console.log('useWebSocket Effect: Соединение заменено новым клиентом, пробуем переподключиться...');
+                        // Небольшая задержка перед переподключением
+                        setTimeout(() => {
+                            connect();
+                        }, 100);
+                        return;
+                    }
+                    console.log('useWebSocket Effect: Соединение закрыто нормально.');
+                    return;
                 }
 
-                if (event.code === 4001 || event.code === 4002) {
-                    setError('Authentication required');
-                    console.error('useWebSocket Effect: Authentication required, not attempting reconnect.');
-                    return; // Не переподключаемся при ошибках аутентификации
+                if (event.code === 4001 || event.code === 4002 || event.code === 1006) {
+                    console.log('useWebSocket Effect: Соединение закрыто из-за проблем с аутентификацией или аномального закрытия.');
+                    return;
                 }
 
-                // Логика автоматического переподключения с экспоненциальной выдержкой
+                // Добавляем задержку перед попыткой переподключения
                 const timeout = Math.min(1000 * 2 ** reconnectAttempts.current, 30000);
-                console.log(`useWebSocket Effect: Attempting reconnect in ${timeout}ms. Attempt: ${reconnectAttempts.current + 1}`);
+                console.log(`useWebSocket Effect: Попытка переподключения через ${timeout}мс. Попытка: ${reconnectAttempts.current + 1}`);
                 
                 reconnectTimeout = setTimeout(() => {
                     reconnectAttempts.current++;
@@ -129,10 +137,8 @@ const useWebSocket = (webSocketUrl, apiUrl, token) => {
 
             currentWs.onerror = (err) => {
                 console.error('useWebSocket Effect: WebSocket error:', err);
-                setError('WebSocket connection error');
+                setError('Ошибка соединения WebSocket');
                 setStatus('error');
-                // Обработчик onclose, скорее всего, будет вызван после onerror,
-                // и там будет произведена попытка переподключения.
             };
         } catch (err) {
             console.error('useWebSocket Effect: Failed to create WebSocket:', err);

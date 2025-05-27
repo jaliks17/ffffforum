@@ -19,6 +19,9 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	swaggerFiles "github.com/swaggo/files"
@@ -44,6 +47,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	// Применение миграций
+	if err := runMigrations(cfg.GetDBConnString(), "./migrations", log); err != nil {
+		log.Error("Failed to run migrations", err)
+		os.Exit(1)
+	}
 
 	// Инициализация Gin
 	router := gin.Default()
@@ -134,4 +143,22 @@ func main() {
 	}
 
 	log.Info("Server stopped")
+}
+
+func runMigrations(dbURL, migrationsPath string, log *logger.Logger) error {
+	m, err := migrate.New(
+		"file://"+migrationsPath,
+		dbURL,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	log.Info("Database migrations applied successfully")
+	return nil
 }

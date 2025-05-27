@@ -1,219 +1,258 @@
 {
-  "openapi": "3.0.0",
-  "info": {
-    "title": "Auth Service API",
-    "description": "API для сервиса авторизации",
-    "version": "1.0.0",
-    "contact": {
-      "name": "Support",
-      "email": "support@example.com"
-    }
-  },
-  "servers": [
-    {
-      "url": "http://localhost:8080",
-      "description": "Локальный сервер разработки"
-    }
-  ],
-  "components": {
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      }
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "This is an authentication and authorization microservice.",
+        "title": "Auth Microservice API",
+        "contact": {},
+        "version": "1.0"
     },
-    "schemas": {
-      "RegisterRequest": {
-        "type": "object",
-        "required": ["email", "password"],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "description": "Email пользователя"
-          },
-          "password": {
-            "type": "string",
-            "minLength": 6,
-            "description": "Пароль пользователя"
-          }
-        }
-      },
-      "LoginRequest": {
-        "type": "object",
-        "required": ["email", "password"],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "description": "Email пользователя"
-          },
-          "password": {
-            "type": "string",
-            "minLength": 6,
-            "description": "Пароль пользователя"
-          }
-        }
-      },
-      "UserResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "description": "ID пользователя"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "description": "Email пользователя"
-          },
-          "role": {
-            "type": "string",
-            "description": "Роль пользователя"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Дата создания"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Дата обновления"
-          }
-        }
-      },
-      "TokenResponse": {
-        "type": "object",
-        "properties": {
-          "access_token": {
-            "type": "string",
-            "description": "JWT токен доступа"
-          },
-          "refresh_token": {
-            "type": "string",
-            "description": "Токен для обновления"
-          },
-          "token_type": {
-            "type": "string",
-            "description": "Тип токена"
-          },
-          "expires_in": {
-            "type": "integer",
-            "description": "Время жизни токена в секундах"
-          }
-        }
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string",
-            "description": "Сообщение об ошибке"
-          }
-        }
-      }
-    }
-  },
-  "paths": {
-    "/auth/register": {
-      "post": {
-        "summary": "Регистрация нового пользователя",
-        "description": "Создает нового пользователя в системе",
-        "tags": ["Auth"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
-              }
+    "host": "localhost:8081",
+    "basePath": "/",
+    "paths": {
+        "/api/v1/auth/signin": {
+            "post": {
+                "description": "Аутентификация пользователя по email и паролю",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Вход в систему",
+                "parameters": [
+                    {
+                        "description": "Данные для входа",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.SignInRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "access_token, refresh_token, user",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/entity.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/entity.ErrorResponse"
+                        }
+                    }
+                }
             }
-          }
         },
-        "responses": {
-          "201": {
-            "description": "Пользователь успешно зарегистрирован",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+        "/api/v1/auth/signup": {
+            "post": {
+                "description": "Создает новую учетную запись пользователя",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Регистрация пользователя",
+                "parameters": [
+                    {
+                        "description": "Данные для регистрации",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.SignUpRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/entity.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/entity.ErrorResponse"
+                        }
+                    }
                 }
-              }
             }
-          },
-          "400": {
-            "description": "Неверный формат данных",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+        },
+        "/api/v1/auth/users/{id}": {
+            "get": {
+                "description": "Возвращает информацию о пользователе",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Получить профиль",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID пользователя",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/entity.User"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/entity.ErrorResponse"
+                        }
+                    }
                 }
-              }
             }
-          },
-          "409": {
-            "description": "Пользователь уже существует",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+        },
+        "/api/v1/auth/validate": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Валидирует JWT токен",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Проверить токен",
+                "responses": {
+                    "200": {
+                        "description": "user_id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/entity.ErrorResponse"
+                        }
+                    }
                 }
-              }
             }
-          }
         }
-      }
     },
-    "/auth/login": {
-      "post": {
-        "summary": "Авторизация пользователя",
-        "description": "Выполняет вход пользователя в систему",
-        "tags": ["Auth"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
+    "definitions": {
+        "controller.SignInRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
             }
-          }
         },
-        "responses": {
-          "200": {
-            "description": "Успешная авторизация",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenResponse"
+        "controller.SignUpRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "role",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "admin"
+                    ]
+                },
+                "username": {
+                    "type": "string",
+                    "minLength": 3
                 }
-              }
             }
-          },
-          "400": {
-            "description": "Неверный формат данных",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+        },
+        "entity.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "invalid request"
                 }
-              }
             }
-          },
-          "401": {
-            "description": "Неверные учетные данные",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+        },
+        "entity.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
                 }
-              }
             }
-          }
         }
-      }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
-  }
 }

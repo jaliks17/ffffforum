@@ -42,53 +42,34 @@ export default function Chat() {
     const isConnecting = status === 'connecting';
 
     return (
-        <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+        <div className="chat-container">
             <h3>Чат {isConnected ? '(Подключено)' : isConnecting ? '(Подключение...)' : '(Отключено)'}</h3>
             {error && <p style={{ color: 'red' }}>Ошибка: {error}</p>}
-            <div style={{
-                border: '1px solid #ccc',
-                height: '300px',
-                overflowY: 'auto',
-                marginBottom: '10px',
-                padding: '10px',
-                backgroundColor: '#f9f9f9'
-            }}>
+            <div className="messages-window">
                 {messages.map((msg, index) => (
-                    <div key={msg.id || msg.clientId || index} style={{ marginBottom: '8px' }}>
-                        <strong style={{ color: '#2196F3' }}>{msg.username || 'Unknown'}:</strong>{' '}
-                        <span>{msg.message}</span>
-                        <div style={{ fontSize: '0.8em', color: '#666' }}>
-                            {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : 'Нет времени'}
+                    <div key={msg.id || msg.clientId || index} className={msg.author_id === parseInt(localStorage.getItem('userId'), 10) ? 'message own-message' : 'message'}>
+                        <div className="message-header">
+                          <span className="message-username">{msg.author_name || 'Unknown'}</span>
+                          <span className="message-time">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : 'Нет времени'}</span>
                         </div>
+                        <div className="message-content">{msg.message}</div>
                     </div>
                 ))}
                 <div ref={messagesEndRef} />
             </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="message-input-area">
                 <input
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
                     disabled={!isConnected}
                     placeholder={isConnected ? "Введите сообщение..." : isConnecting ? "Подключение..." : "Отключено"}
-                    style={{
-                        flex: 1,
-                        padding: '8px',
-                        borderRadius: '4px',
-                        border: '1px solid #ccc'
-                    }}
+                    className="message-input"
                 />
                 <button
                     onClick={handleSendMessage}
-                    disabled={!isConnected}
-                    style={{
-                        padding: '8px 16px',
-                        backgroundColor: isConnected ? '#2196F3' : '#ccc',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: isConnected ? 'pointer' : 'not-allowed'
-                    }}
+                    disabled={!isConnected || !input.trim()}
+                    className="message-send-button"
                 >
                     Отправить
                 </button>

@@ -38,7 +38,7 @@ func TestSessionRepository_Create(t *testing.T) {
 			},
 			mock: func() {
 				mock.ExpectQuery("INSERT INTO sessions").
-					WithArgs(1, "test-token", sqlmock.AnyArg()).
+					WithArgs(1, "test-token", sqlmock.AnyArg(), sqlmock.AnyArg()).
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 			},
 			want:    1,
@@ -55,6 +55,21 @@ func TestSessionRepository_Create(t *testing.T) {
 				mock.ExpectQuery("INSERT INTO sessions").
 					WithArgs(1, "test-token", sqlmock.AnyArg()).
 					WillReturnError(sql.ErrConnDone)
+			},
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name: "database error during query",
+			session: &entity.Session{
+				UserID:    1,
+				Token:     "test-token",
+				ExpiresAt: time.Now().Add(time.Hour),
+			},
+			mock: func() {
+				mock.ExpectQuery("INSERT INTO sessions").
+					WithArgs(1, "test-token", sqlmock.AnyArg(), sqlmock.AnyArg()).
+					WillReturnError(assert.AnError)
 			},
 			want:    0,
 			wantErr: true,
@@ -95,9 +110,9 @@ func TestSessionRepository_GetByToken(t *testing.T) {
 			name:  "session found",
 			token: "test-token",
 			mock: func() {
-				rows := sqlmock.NewRows([]string{"id", "user_id", "token", "expires_at"}).
-					AddRow(1, 1, "test-token", time.Now().Add(time.Hour))
-				mock.ExpectQuery("SELECT id, user_id, token, expires_at FROM sessions").
+				rows := sqlmock.NewRows([]string{"id", "user_id", "token", "expires_at", "created_at"}).
+					AddRow(1, 1, "test-token", time.Now().Add(time.Hour), time.Now())
+				mock.ExpectQuery("SELECT id, user_id, token, expires_at, created_at FROM sessions").
 					WithArgs("test-token").
 					WillReturnRows(rows)
 			},
@@ -113,12 +128,23 @@ func TestSessionRepository_GetByToken(t *testing.T) {
 			name:  "session not found",
 			token: "nonexistent-token",
 			mock: func() {
-				mock.ExpectQuery("SELECT id, user_id, token, expires_at FROM sessions").
+				mock.ExpectQuery("SELECT id, user_id, token, expires_at, created_at FROM sessions").
 					WithArgs("nonexistent-token").
 					WillReturnError(sql.ErrNoRows)
 			},
 			want:    nil,
 			wantErr: false,
+		},
+		{
+			name:  "database error",
+			token: "test-token",
+			mock: func() {
+				mock.ExpectQuery("SELECT id, user_id, token, expires_at, created_at FROM sessions").
+					WithArgs("test-token").
+					WillReturnError(assert.AnError)
+			},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 
@@ -177,6 +203,16 @@ func TestSessionRepository_Delete(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name:  "database error",
+			token: "test-token",
+			mock: func() {
+				mock.ExpectExec("DELETE FROM sessions").
+					WithArgs("test-token").
+					WillReturnError(assert.AnError)
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -209,7 +245,6 @@ func TestSessionRepository_DeleteExpired(t *testing.T) {
 			name: "successful deletion of expired sessions",
 			mock: func() {
 				mock.ExpectExec("DELETE FROM sessions").
-					WithArgs(sqlmock.AnyArg()).
 					WillReturnResult(sqlmock.NewResult(5, 5))
 			},
 			wantErr: false,
@@ -218,10 +253,17 @@ func TestSessionRepository_DeleteExpired(t *testing.T) {
 			name: "no expired sessions",
 			mock: func() {
 				mock.ExpectExec("DELETE FROM sessions").
-					WithArgs(sqlmock.AnyArg()).
 					WillReturnResult(sqlmock.NewResult(0, 0))
 			},
 			wantErr: false,
+		},
+		{
+			name: "database error",
+			mock: func() {
+				mock.ExpectExec("DELETE FROM sessions").
+					WillReturnError(assert.AnError)
+			},
+			wantErr: true,
 		},
 	}
 

@@ -164,22 +164,24 @@ const Comments = ({ postId }) => {
     return (
         <div className="comments-section">
             <h3 className="comments-title">
-                Discussion ({comments.length})
-                {loading && <span className="loading-indicator">Loading...</span>}
+                Обсуждение ({comments.length})
+                {loading && <span className="loading-indicator">Загрузка...</span>}
             </h3>
             
             {isAuthenticated ? (
                 <form onSubmit={handleSubmitComment} className="comment-form">
                     <div className="comment-input-container">
-                        <img 
-                            src={currentUser.avatar} 
-                            alt={currentUser.username} 
-                            className="comment-avatar" 
-                        />
+                        {currentUser?.avatar && currentUser.avatar !== '/default-avatar.png' && (
+                           <img 
+                                src={currentUser.avatar} 
+                                alt={currentUser.username} 
+                                className="comment-avatar" 
+                           />
+                        )}
                         <textarea
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="Share your thoughts..."
+                            placeholder="Поделитесь мыслями..."
                             rows="3"
                             disabled={submitting}
                             required
@@ -195,7 +197,7 @@ const Comments = ({ postId }) => {
                             {submitting ? (
                                 <span className="spinner"></span>
                             ) : (
-                                'Post Comment'
+                                'Оставить комментарий'
                             )}
                         </button>
                     </div>
@@ -203,7 +205,7 @@ const Comments = ({ postId }) => {
             ) : (
                 <div className="login-prompt">
                     <p>
-                        <a href="/login" className="login-link">Sign in</a> to join the conversation
+                        <a href="/login" className="login-link">Войдите</a>, чтобы присоединиться к обсуждению
                     </p>
                 </div>
             )}
@@ -217,17 +219,19 @@ const Comments = ({ postId }) => {
             <div className="comments-list">
                 {comments.length === 0 && !loading ? (
                     <div className="no-comments">
-                        <p>No comments yet. Be the first to share your thoughts!</p>
+                        <p>Пока нет комментариев. Будьте первым, кто поделится своими мыслями!</p>
                     </div>
                 ) : (
                     comments.map(comment => (
                         <div key={comment.id} className={`comment-item ${comment.author_id === currentUser?.id ? 'own-comment' : ''}`}>
                             <div className="comment-avatar-container">
-                                <img 
-                                    src={comment.author_avatar} 
-                                    alt={comment.author_name} 
-                                    className="comment-avatar" 
-                                />
+                                {comment.author_avatar && comment.author_avatar !== '/default-avatar.png' && (
+                                   <img 
+                                        src={comment.author_avatar} 
+                                        alt={comment.author_name} 
+                                        className="comment-avatar" 
+                                   />
+                                )}
                             </div>
                             <div className="comment-content-container">
                                 <div className="comment-header">
@@ -250,7 +254,6 @@ const Comments = ({ postId }) => {
                                     >
                                         ❤️ {comment.likes > 0 && comment.likes}
                                     </button>
-                                    <span className="comment-reply">Reply</span>
                                 </div>
                             </div>
                         </div>

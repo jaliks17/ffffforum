@@ -183,15 +183,20 @@ func TestSignIn(t *testing.T) {
 					Username: "testuser",
 					Password: "password123",
 				}).Return(&entity.TokenResponse{
-					AccessToken:  "test-access-token",
+					AccessToken:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6InRlc3R1c2VyIiwicm9sZSI6InVzZXIifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
 					RefreshToken: "test-refresh-token",
 					TokenType:    "Bearer",
 					ExpiresIn:    86400,
 				}, nil)
+				mockUC.On("GetUserByID", mock.Anything, int64(1)).Return(&entity.User{
+					ID:       1,
+					Username: "testuser",
+					Role:     "user",
+				}, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody: map[string]interface{}{
-				"access_token":  "test-access-token",
+				"access_token":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6InRlc3R1c2VyIiwicm9sZSI6InVzZXIifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
 				"refresh_token": "test-refresh-token",
 			},
 		},
@@ -335,7 +340,6 @@ func TestValidateToken(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			expectedBody: map[string]interface{}{
 				"user_id":  float64(1),
-				"username": "testuser",
 				"role":     "user",
 			},
 		},
@@ -381,7 +385,6 @@ func TestValidateToken(t *testing.T) {
 
 			if tt.expectedStatus == http.StatusOK {
 				assert.Equal(t, tt.expectedBody["user_id"], response["user_id"])
-				assert.Equal(t, tt.expectedBody["username"], response["username"])
 				assert.Equal(t, tt.expectedBody["role"], response["role"])
 			} else {
 				assert.Equal(t, tt.expectedBody["error"], response["error"])
